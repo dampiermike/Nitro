@@ -22,7 +22,7 @@ from pathlib import Path
 # ── Config ────────────────────────────────────────────────────────────────────
 GMAIL_USER = os.environ.get('GOOGLE_EMAIL', 'dampiermike@gmail.com')
 GMAIL_PASS = os.environ.get('GOOGLE_APP_PASSWORD', '')
-TO_EMAIL   = 'dampiermike@gmail.com'
+TO_EMAIL   = ['dampiermike@gmail.com', 'dampier777@gmail.com']
 
 NITRO_DIR = Path('/Users/mikedampier/Documents/Development/Nitro')
 DATA_DIR  = NITRO_DIR / 'data' / 'csv' / 'history'
@@ -588,7 +588,7 @@ def send_email(subject, body_text):
     msg = MIMEMultipart('alternative')
     msg['Subject'] = subject
     msg['From']    = GMAIL_USER
-    msg['To']      = TO_EMAIL
+    msg['To']      = ', '.join(TO_EMAIL)
     msg.attach(MIMEText(body_text, 'plain'))
     with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
         server.login(GMAIL_USER, GMAIL_PASS)
