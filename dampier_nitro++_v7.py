@@ -1,117 +1,67 @@
 import pandas as pd
 import numpy as np
-import json
 
 # ── File paths ───────────────────────────────────────────────────────────────
-HIST_DIR     = '/Users/mikedampier/.openclaw/workspace/json/history'
-SPLICED_DIR  = '/Users/mikedampier/.openclaw/workspace/json/spliced'
-QQQ_PRE2000  = f'{HIST_DIR}/QQQ_US_pre2000.json'
-QQQ_FILE     = f'{HIST_DIR}/QQQ_US.json'
-TQQQ_SPLICED = f'{SPLICED_DIR}/TQQQ_US.json'
-TQQQ_FILE    = f'{HIST_DIR}/TQQQ_US.json'
-WORKTREE_DIR = '/Users/mikedampier/Documents/Development/.claude/worktrees/angry-williamson'
-TQQQ_CSV     = f'{WORKTREE_DIR}/TQQQ OHLC (1).csv'  # RT column (VectorVest proprietary)
-SYN_FILE     = f'{WORKTREE_DIR}/synthetic_TQQQ_OHLC_1999_2010.csv'  # RT_v6 only
-VV_FILE      = f'{WORKTREE_DIR}/VectorVest Views w3Place Precision.csv'
-VIX_FILE     = f'{WORKTREE_DIR}/^VIX_historical_data.csv'
+DATA_DIR  = '/Users/mikedampier/Documents/Development/Nitro/data/csv/history'
+QQQ_FILE  = f'{DATA_DIR}/qqq-from-vv.csv'        # QQQ OHLC + RT (VectorVest, split-adjusted)
+TQQQ_FILE = f'{DATA_DIR}/tqqq-from-vv.csv'       # Real TQQQ OHLC + RT (VectorVest, 2010+)
+SYN_FILE  = f'{DATA_DIR}/synthetic-tqqq-ohlc-1999-2010.csv'  # Synthetic TQQQ OHLC + RT_v6
+VV_FILE   = f'{DATA_DIR}/vectorvest-views-w3place-precision.csv'  # VectorVest market indicators
+VIX_FILE  = f'{DATA_DIR}/vix-from-yahoo.csv'      # CBOE VIX
 
 # ════════════════════════════════════════════════════════════════════════════
-# STEP 1 — Load and Merge (local JSON sources)
+# STEP 1 — Load and Merge (CSV sources)
 # ════════════════════════════════════════════════════════════════════════════
 
 # ── 1a. QQQ ─────────────────────────────────────────────────────────────────
-# Stitch pre-2000 warmup (EODHD JSON) + 2000+ (local JSON)
-# Use adjusted_close for c2c (handles splits); o2c/pc2o use adj_open derived from adj_factor
-def load_qqq_json(path):
-    with open(path) as f:
-        data = json.load(f)
-    df = pd.DataFrame(data)
-    df['Date'] = pd.to_datetime(df['date'])
-    df = df.rename(columns={
-        'open': 'Open', 'high': 'High', 'low': 'Low',
-        'close': 'Close', 'adjusted_close': 'AdjClose'
-    })
-    df['adj_factor'] = df['AdjClose'] / df['Close']
-    df['AdjOpen']    = df['Open']  * df['adj_factor']
-    df['AdjHigh']    = df['High']  * df['adj_factor']
-    df['AdjLow']     = df['Low']   * df['adj_factor']
-    return df[['Date','Open','High','Low','Close','AdjOpen','AdjHigh','AdjLow','AdjClose']].copy()
-
-pre2000 = load_qqq_json(QQQ_PRE2000)
-post2000 = load_qqq_json(QQQ_FILE)
-
-qqq_raw = pd.concat([pre2000, post2000], ignore_index=True)
+# VectorVest exports are split-adjusted — use OHLC directly, no adj_factor needed
+qqq_raw = pd.read_csv(QQQ_FILE, encoding='utf-8-sig')
+qqq_raw['Date'] = pd.to_datetime(qqq_raw['Date'])
 qqq_raw = qqq_raw.sort_values('Date').drop_duplicates('Date').reset_index(drop=True)
 
-# Returns use adjusted prices for consistency across splits/dividends
-qqq_raw['c2c_QQQ']  = qqq_raw['AdjClose'].pct_change()
-qqq_raw['o2c_QQQ']  = qqq_raw['AdjClose'] / qqq_raw['AdjOpen'] - 1
-qqq_raw['pc2o_QQQ'] = qqq_raw['AdjOpen'] / qqq_raw['AdjClose'].shift(1) - 1
+# Return columns
+qqq_raw['c2c_QQQ']  = qqq_raw['Close'].pct_change()
+qqq_raw['o2c_QQQ']  = qqq_raw['Close'] / qqq_raw['Open'] - 1
+qqq_raw['pc2o_QQQ'] = qqq_raw['Open'] / qqq_raw['Close'].shift(1) - 1
 
 # PSQ columns (1× inverse QQQ; expense ratio only in c2c)
 qqq_raw['o2c_PSQ']  = -1 * qqq_raw['o2c_QQQ']
 qqq_raw['pc2o_PSQ'] = -1 * qqq_raw['pc2o_QQQ']
 qqq_raw['c2c_PSQ']  = -1 * qqq_raw['c2c_QQQ'] - 0.0095 / 252
 
-# Expose adjusted OHLC as main OHLC columns for ATR14 / stop levels
-qqq_raw['Open']  = qqq_raw['AdjOpen']
-qqq_raw['High']  = qqq_raw['AdjHigh']
-qqq_raw['Low']   = qqq_raw['AdjLow']
-qqq_raw['Close'] = qqq_raw['AdjClose']
-
-# Full series for DEW warmup
+# Full series for DEW warmup (CSV starts 7/1/99)
 qqq_full = qqq_raw.copy()
 
 # Filter to backtest window
 qqq = qqq_raw[qqq_raw['Date'] >= '2000-01-01'].copy()
 
-# ── 1b. Synthetic TQQQ RT_v6 (pre-2010, RT column only) ─────────────────────
-syn_rt = pd.read_csv(SYN_FILE)
-syn_rt['Date'] = pd.to_datetime(syn_rt['Date'])
-syn_rt = syn_rt[['Date', 'RT_v6']].sort_values('Date').reset_index(drop=True)
+# ── 1b. Synthetic TQQQ (pre-2010) — OHLC + RT_v6 ────────────────────────────
+syn = pd.read_csv(SYN_FILE)
+syn['Date'] = pd.to_datetime(syn['Date'])
+syn = syn.sort_values('Date').reset_index(drop=True)
+syn = syn.rename(columns={
+    'Open': 'tqqq_open', 'High': 'tqqq_high',
+    'Low':  'tqqq_low',  'Close': 'tqqq_close', 'RT_v6': 'tqqq_rt'
+})
+syn = syn[['Date', 'tqqq_open', 'tqqq_high', 'tqqq_low', 'tqqq_close', 'tqqq_rt']]
 
-# ── 1c. TQQQ OHLC — spliced JSON (all periods) ──────────────────────────────
-# The spliced file has raw open/high/low for the real period (2010-02-11+)
-# but adjusted_close is already adjusted for the full series.
-# Apply adj_factor = adjusted_close/close to scale open/high/low to the same
-# adjusted basis as adjusted_close, so all return calcs are consistent.
-with open(TQQQ_SPLICED) as f:
-    spliced_data = json.load(f)
-tqqq_spliced = pd.DataFrame(spliced_data)
-tqqq_spliced['Date'] = pd.to_datetime(tqqq_spliced['date'])
-tqqq_spliced['adj_factor'] = tqqq_spliced['adjusted_close'] / tqqq_spliced['close']
-tqqq_spliced['tqqq_open']  = tqqq_spliced['open']  * tqqq_spliced['adj_factor']
-tqqq_spliced['tqqq_high']  = tqqq_spliced['high']  * tqqq_spliced['adj_factor']
-tqqq_spliced['tqqq_low']   = tqqq_spliced['low']   * tqqq_spliced['adj_factor']
-tqqq_spliced['tqqq_close'] = tqqq_spliced['adjusted_close']
-tqqq_spliced = tqqq_spliced[['Date','tqqq_open','tqqq_high','tqqq_low','tqqq_close']]
-tqqq_spliced = tqqq_spliced.sort_values('Date').reset_index(drop=True)
+# ── 1c. Real TQQQ (2010+) — OHLC + RT ───────────────────────────────────────
+tqqq_real = pd.read_csv(TQQQ_FILE, encoding='utf-8-sig')
+tqqq_real['Date'] = pd.to_datetime(tqqq_real['Date'])
+tqqq_real = tqqq_real.sort_values('Date').reset_index(drop=True)
+tqqq_real = tqqq_real.rename(columns={
+    'Open': 'tqqq_open', 'High': 'tqqq_high',
+    'Low':  'tqqq_low',  'Close': 'tqqq_close', 'RT': 'tqqq_rt'
+})
+tqqq_real = tqqq_real[['Date', 'tqqq_open', 'tqqq_high', 'tqqq_low', 'tqqq_close', 'tqqq_rt']]
 
-# ── 1d. Real TQQQ RT (2010+) — from original CSV (VectorVest proprietary) ───
-tqqq_csv = pd.read_csv(TQQQ_CSV, dtype=str)
-tqqq_csv = tqqq_csv[~tqqq_csv['Date'].isin(['Date', 'Time'])].copy()
-tqqq_csv['Date'] = pd.to_datetime(tqqq_csv['Date'])
-tqqq_csv['RT'] = pd.to_numeric(tqqq_csv['RT'])
-tqqq_hist = tqqq_csv[['Date','RT']].sort_values('Date').reset_index(drop=True)
-
-# ── 1e. Stitch TQQQ ─────────────────────────────────────────────────────────
-# OHLC: spliced JSON (covers full range)
-# RT:   synthetic CSV RT_v6 pre-2010, TQQQ CSV RT post-2010
-real_start = tqqq_hist['Date'].min()
-
-# Merge RT onto spliced OHLC
-tqqq_stitched = tqqq_spliced.copy()
-
-# Attach RT: pre-2010 from synthetic CSV, post-2010 from history
-tqqq_stitched = tqqq_stitched.merge(syn_rt, on='Date', how='left')    # RT_v6 pre-2010
-tqqq_stitched = tqqq_stitched.merge(tqqq_hist, on='Date', how='left') # RT post-2010
-tqqq_stitched['tqqq_rt'] = np.where(
-    tqqq_stitched['Date'] < real_start,
-    tqqq_stitched['RT_v6'],
-    tqqq_stitched['RT']
-)
-tqqq_stitched = tqqq_stitched.drop(columns=['RT_v6','RT'])
-tqqq_stitched = tqqq_stitched.sort_values('Date').reset_index(drop=True)
+# ── 1d. Stitch TQQQ ─────────────────────────────────────────────────────────
+# Synthetic covers pre-2010; real CSV covers 2010+; they join cleanly at 3/31/10
+real_start = tqqq_real['Date'].min()
+tqqq_stitched = pd.concat([
+    syn[syn['Date'] < real_start],
+    tqqq_real
+], ignore_index=True).sort_values('Date').reset_index(drop=True)
 
 # TQQQ return columns
 tqqq_stitched['tqqq_c2c']  = tqqq_stitched['tqqq_close'].pct_change()
@@ -137,8 +87,8 @@ vv = vv.rename(columns={'VVC-RT': 'RT', 'BS Ratio': 'BSR'})
 vv = vv[['Date', 'Trend', 'RT', 'MTI', 'BSR']]
 
 # ── 1f. VIX ─────────────────────────────────────────────────────────────────
-vix = pd.read_csv(VIX_FILE, skiprows=2,
-                  names=['Date','AdjClose','Close','High','Low','Open','Volume'])
+# Yahoo export has standard header row — no skiprows needed
+vix = pd.read_csv(VIX_FILE)
 vix['Date'] = pd.to_datetime(vix['Date'], errors='coerce')
 vix = vix.dropna(subset=['Date'])
 vix = vix[['Date', 'Close']].rename(columns={'Close': 'VIX'})
