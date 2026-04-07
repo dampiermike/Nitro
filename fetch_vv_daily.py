@@ -36,7 +36,8 @@ HIST_DIR     = NITRO_DIR / 'data' / 'csv' / 'history'
 VV_SCRIPT    = NITRO_DIR / 'fetch_vectorvest_stock.py'
 TIMING_SCRIPT = NITRO_DIR / 'fetch_vectorvest_timing.py'
 COOKIE_FILE  = Path('/Users/mikedampier/.openclaw/workspace/views_cookie.json')
-FEED_URL     = 'https://views-us.vectorvest.com/category/weekly-newsletter/feed/'
+WEEKLY_FEED_URL = 'https://views-us.vectorvest.com/category/weekly-newsletter/feed/'
+DAILY_FEED_URL  = 'https://views-us.vectorvest.com/feed/?cat=daily'
 DAILY_DIR.mkdir(parents=True, exist_ok=True)
 
 DATE_FMT = '%-m/%-d/%y'   # M/D/YY — matches existing history file format
@@ -169,11 +170,13 @@ def fetch_stockviewer(symbols: str, email: str, password: str) -> list[dict]:
 
 # ── SOURCE 2: Views newsletter timing table ───────────────────────────────────
 
-def fetch_timing_table(email: str, password: str) -> pd.DataFrame:
+def fetch_timing_table(email: str, password: str, feed_url: str = None) -> pd.DataFrame:
     """Fetch the latest Views newsletter timing table via RSS feed. Returns a DataFrame."""
     timing = load_module(TIMING_SCRIPT, 'vvtiming')
 
-    latest_url = timing.get_latest_link_from_feed(FEED_URL)
+    if feed_url is None:
+        feed_url = WEEKLY_FEED_URL
+    latest_url = timing.get_latest_link_from_feed(feed_url)
     print(f"  Newsletter URL: {latest_url}", flush=True)
 
     with sync_playwright() as p:
@@ -272,6 +275,8 @@ def update_vvc_price(rec: dict, trading_day: date):
         if str(old) == str(rec.get('Price', '')):
             print(f"  ⚠️  {VV_VIEWS_FILE.name}: {trading_day} VVC-Price already {old} — no change")
             return
+        df['VVC-Price'] = df['VVC-Price'].astype(object)
+        df['VVC-RT']    = df['VVC-RT'].astype(object)
         df.at[idx, 'VVC-Price'] = rec.get('Price', df.at[idx, 'VVC-Price'])
         df.at[idx, 'VVC-RT']    = rec.get('RT',    df.at[idx, 'VVC-RT'])
         save_history(df, VV_VIEWS_FILE)
@@ -320,16 +325,45 @@ def main():
     date_str    = today.strftime("%Y-%m-%d")
     print(f"[{datetime.now().isoformat()}] fetch_vv_daily  {date_str}\n", flush=True)
 
-    # ── SOURCE 2: Views timing table ──────────────────────────────────────────
+    # ── SOURCE 2: Views timing tables (daily + weekly) ────────────────────────
     timing_df = None
     if not args.skip_timing:
-        print("── Views newsletter timing table ─────────────────────────────")
+        all_timing_frames = []
+
+        # ── 2a: Daily newsletter (primary — has today's data) ─────────────────
+        print("── Daily Views newsletter ────────────────────────────────────")
+        daily_timing_df = None
         try:
-            timing_df = fetch_timing_table(email, password)
-            print(f"  Fetched {len(timing_df)} rows  "
+            daily_timing_df = fetch_timing_table(email, password, DAILY_FEED_URL)
+            print(f"  Fetched {len(daily_timing_df)} rows  "
+                  f"({daily_timing_df['Date'].min().date()} → {daily_timing_df['Date'].max().date()})")
+            all_timing_frames.append(daily_timing_df)
+        except Exception as e:
+            print(f"  ⚠️  Daily timing fetch failed: {e}")
+        print()
+
+        # ── 2b: Weekly newsletter (supplement — older historical rows) ────────
+        print("── Weekly Views newsletter ───────────────────────────────────")
+        try:
+            weekly_timing_df = fetch_timing_table(email, password, WEEKLY_FEED_URL)
+            print(f"  Fetched {len(weekly_timing_df)} rows  "
+                  f"({weekly_timing_df['Date'].min().date()} → {weekly_timing_df['Date'].max().date()})")
+            all_timing_frames.append(weekly_timing_df)
+        except Exception as e:
+            print(f"  ⚠️  Weekly timing fetch failed: {e}")
+        print()
+
+        # ── Combine, deduplicate (daily takes priority), merge ────────────────
+        if all_timing_frames:
+            timing_df = pd.concat(all_timing_frames, ignore_index=True)
+            # daily rows take priority (listed first) — keep first occurrence per date
+            timing_df = timing_df.drop_duplicates(subset='Date', keep='first')
+            timing_df = timing_df.sort_values('Date').reset_index(drop=True)
+
+            print(f"── Combined timing: {len(timing_df)} unique rows  "
                   f"({timing_df['Date'].min().date()} → {timing_df['Date'].max().date()})")
 
-            # Save daily snapshot of timing table
+            # Save daily snapshot
             snap_path = DAILY_DIR / f"timing_{date_str}.csv"
             snap = timing_df.copy()
             snap['Date'] = snap['Date'].dt.strftime(DATE_FMT)
@@ -337,11 +371,13 @@ def main():
             print(f"  Snapshot → {snap_path.name}")
 
             merge_vv_views_from_timing(timing_df)
-            # Use timing table's max date as authoritative trading day
-            trading_day = trading_day_from_timing(timing_df)
-            print(f"  Trading day resolved from timing table: {trading_day}")
-        except Exception as e:
-            print(f"  ⚠️  Timing fetch failed: {e} — falling back to last weekday: {trading_day}")
+
+            # Trading day = daily newsletter's max date (authoritative — handles holidays)
+            src_df = daily_timing_df if daily_timing_df is not None else timing_df
+            trading_day = trading_day_from_timing(src_df)
+            print(f"  Trading day resolved from daily table: {trading_day}")
+        else:
+            print(f"  ⚠️  Both timing fetches failed — falling back to last weekday: {trading_day}")
         print()
 
     # ── SOURCE 1: StockViewer ─────────────────────────────────────────────────
