@@ -2,30 +2,35 @@
 """
 Daily VectorVest end-of-day fetch — two sources combined:
 
-SOURCE 1 — StockViewer (VVC, TQQQ, QQQ)
+SOURCE 1 — StockViewer (VVC, TQQQ, QQQ)  [browser-based]
   Primary source for VVC-Price (3 decimal places) and per-stock metrics.
   Merges into:
     qqq-from-vv.csv               (Open, High, Low, Close=Price, Volume, RT)
     tqqq-from-vv.csv              (Open, High, Low, Close=Price, Volume, RT)
     vectorvest-views-w3place-precision.csv  → today's VVC-Price + VVC-RT
 
-SOURCE 2 — Views newsletter timing table (views-us.vectorvest.com)
-  Source for market-wide indicators: MTI, Trend, % Buys, % Sells, BS Ratio, CG-*.
-  Fetches the latest newsletter via RSS feed and merges all new rows into:
+SOURCE 2 — VectorVest REST API  [no browser required]
+  Replaces the old Views newsletter RSS/browser scrape.
+  Fetches market-wide indicators via api.vectorvest.com/MarketData/v3/markettiming/US:
+    MTI, Trend, % Buys, % Sells, BS Ratio, CG-Price, CG-RT, CG-BSR, VVC-Price, VVC-RT
+  Merges all new rows into:
     vectorvest-views-w3place-precision.csv
 
 For today's row in the VV views file:
-  - Timing table provides all 11 columns (including VVC-Price at 2 decimals)
-  - StockViewer then overwrites VVC-Price with higher-precision 3-decimal value
+  - REST API provides all 11 columns (VVC-Price at full precision)
+  - StockViewer then overwrites VVC-Price with its own 3-decimal value (if available)
 
 Usage:
     python3 fetch_vv_daily.py
     python3 fetch_vv_daily.py --symbols "VVC, TQQQ, QQQ"
+    python3 fetch_vv_daily.py --skip-stockviewer   # REST API only
+    python3 fetch_vv_daily.py --skip-timing        # StockViewer only
 """
-import os, sys, argparse, importlib.util
+import os, sys, argparse, base64, importlib.util
 from datetime import datetime, date, timedelta
 from pathlib import Path
 
+import requests
 import pandas as pd
 from playwright.sync_api import sync_playwright
 
@@ -36,8 +41,8 @@ HIST_DIR     = NITRO_DIR / 'data' / 'csv' / 'history'
 VV_SCRIPT    = NITRO_DIR / 'fetch_vectorvest_stock.py'
 TIMING_SCRIPT = NITRO_DIR / 'fetch_vectorvest_timing.py'
 COOKIE_FILE  = Path('/Users/mikedampier/.openclaw/workspace/views_cookie.json')
-WEEKLY_FEED_URL = 'https://views-us.vectorvest.com/category/weekly-newsletter/feed/'
-DAILY_FEED_URL  = 'https://views-us.vectorvest.com/feed/?cat=daily'
+VV_TOKEN_URL  = 'https://www.vectorvest.com/identity2/issue/simple'
+VV_TIMING_URL = 'https://api.vectorvest.com/MarketData/v3/markettiming/US'
 DAILY_DIR.mkdir(parents=True, exist_ok=True)
 
 DATE_FMT = '%-m/%-d/%y'   # M/D/YY — matches existing history file format
@@ -168,47 +173,80 @@ def fetch_stockviewer(symbols: str, email: str, password: str) -> list[dict]:
         return records
 
 
-# ── SOURCE 2: Views newsletter timing table ───────────────────────────────────
+# ── SOURCE 2: VectorVest REST API timing ──────────────────────────────────────
 
-def fetch_timing_table(email: str, password: str, feed_url: str = None) -> pd.DataFrame:
-    """Fetch the latest Views newsletter timing table via RSS feed. Returns a DataFrame."""
-    timing = load_module(TIMING_SCRIPT, 'vvtiming')
+def get_vv_token(email: str, password: str) -> str:
+    """Authenticate with VectorVest and return a Bearer token. No browser needed."""
+    creds = base64.b64encode(f"{email}:{password}".encode()).decode()
+    resp = requests.get(
+        VV_TOKEN_URL,
+        headers={
+            "Authorization": f"Basic {creds}",
+            "Accept":        "application/json",
+            "User-Agent":    "Mozilla/5.0",
+            "Origin":        "https://app.vectorvest.com",
+        },
+        params={"realm": "https://www.vectorvest.com", "tokenType": "jwt"},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    return resp.json()["access_token"]
 
-    if feed_url is None:
-        feed_url = WEEKLY_FEED_URL
-    latest_url = timing.get_latest_link_from_feed(feed_url)
-    print(f"  Newsletter URL: {latest_url}", flush=True)
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        ctx  = browser.new_context()
+def fetch_timing_table(email: str, password: str, num_days: int = 10) -> pd.DataFrame:
+    """Fetch market timing data via VectorVest REST API. No browser needed.
 
-        if COOKIE_FILE.exists():
-            timing.load_cookies_into_context(ctx, str(COOKIE_FILE))
+    Returns a DataFrame with columns matching vectorvest-views-w3place-precision.csv:
+      Date, VVC-Price, VVC-RT, % Buys, % Sells, BS Ratio,
+      CG-Price, CG-RT, CG-BSR, MTI, Trend
+    """
+    token = get_vv_token(email, password)
+    resp = requests.get(
+        VV_TIMING_URL,
+        headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+        params={
+            "includeAtAGlance": "true",
+            "includeColorGuard": "true",
+            "useExtendedHours": "false",
+            "numDaysColorGuard": num_days,
+        },
+        timeout=15,
+    )
+    resp.raise_for_status()
+    data = resp.json()
 
-        page = ctx.new_page()
+    at_a_glance = data.get("AtAGlance", {})
+    items       = data.get("ColorGuard", {}).get("Items", [])
 
-        # Main login first
-        page.goto("https://www.vectorvest.com/vvlogin/login.aspx",
-                  wait_until="domcontentloaded")
-        timing.login(page, email, password)
-        page.wait_for_timeout(2000)
+    if not items:
+        raise RuntimeError("VectorVest REST API returned no ColorGuard items")
 
-        # Navigate to newsletter
-        page.goto(latest_url, wait_until="domcontentloaded")
-        page.wait_for_timeout(3000)
-        print(f"  Landed: {page.url}  ({page.locator('table').count()} tables)", flush=True)
+    # Build a lookup for today's % Buys / % Sells (only available in AtAGlance)
+    today_iso = date.today().isoformat()
+    buys_pct  = round(at_a_glance.get("BuysPercentage",  0) * 100, 1)
+    sells_pct = round(at_a_glance.get("SellsPercentage", 0) * 100, 1)
 
-        records = timing.extract_table_by_name(page, target_name="timing")
-        ctx.close()
-        browser.close()
+    rows = []
+    for item in items:
+        trading_date = pd.to_datetime(item["TradingDate"]).date()
+        is_today     = (trading_date.isoformat() == today_iso)
+        rows.append({
+            "Date":      pd.Timestamp(trading_date),
+            "VVC-Price": round(item["Price"], 3),
+            "VVC-RT":    item["RelativeTiming"],
+            "% Buys":    buys_pct  if is_today else "",
+            "% Sells":   sells_pct if is_today else "",
+            "BS Ratio":  item["BuySellRatio"],
+            "CG-Price":  item["PriceColor"],
+            "CG-RT":     item["RelativeTimingColor"],
+            "CG-BSR":    item["BuySellRatioColor"],
+            "MTI":       item["MarketTimingIndicator"],
+            "Trend":     item["Trend"],
+        })
 
-    if not records:
-        raise RuntimeError("Timing table returned no rows")
-
-    df = pd.DataFrame(records)
-    # Normalize date column
-    df['Date'] = pd.to_datetime(df['Date'])
+    df = pd.DataFrame(rows).sort_values("Date").reset_index(drop=True)
+    print(f"  Fetched {len(df)} rows  "
+          f"({df['Date'].min().date()} → {df['Date'].max().date()})")
     return df
 
 
@@ -325,43 +363,12 @@ def main():
     date_str    = today.strftime("%Y-%m-%d")
     print(f"[{datetime.now().isoformat()}] fetch_vv_daily  {date_str}\n", flush=True)
 
-    # ── SOURCE 2: Views timing tables (daily + weekly) ────────────────────────
+    # ── SOURCE 2: VectorVest REST API timing ─────────────────────────────────
     timing_df = None
     if not args.skip_timing:
-        all_timing_frames = []
-
-        # ── 2a: Daily newsletter (primary — has today's data) ─────────────────
-        print("── Daily Views newsletter ────────────────────────────────────")
-        daily_timing_df = None
+        print("── VectorVest REST API timing ────────────────────────────────")
         try:
-            daily_timing_df = fetch_timing_table(email, password, DAILY_FEED_URL)
-            print(f"  Fetched {len(daily_timing_df)} rows  "
-                  f"({daily_timing_df['Date'].min().date()} → {daily_timing_df['Date'].max().date()})")
-            all_timing_frames.append(daily_timing_df)
-        except Exception as e:
-            print(f"  ⚠️  Daily timing fetch failed: {e}")
-        print()
-
-        # ── 2b: Weekly newsletter (supplement — older historical rows) ────────
-        print("── Weekly Views newsletter ───────────────────────────────────")
-        try:
-            weekly_timing_df = fetch_timing_table(email, password, WEEKLY_FEED_URL)
-            print(f"  Fetched {len(weekly_timing_df)} rows  "
-                  f"({weekly_timing_df['Date'].min().date()} → {weekly_timing_df['Date'].max().date()})")
-            all_timing_frames.append(weekly_timing_df)
-        except Exception as e:
-            print(f"  ⚠️  Weekly timing fetch failed: {e}")
-        print()
-
-        # ── Combine, deduplicate (daily takes priority), merge ────────────────
-        if all_timing_frames:
-            timing_df = pd.concat(all_timing_frames, ignore_index=True)
-            # daily rows take priority (listed first) — keep first occurrence per date
-            timing_df = timing_df.drop_duplicates(subset='Date', keep='first')
-            timing_df = timing_df.sort_values('Date').reset_index(drop=True)
-
-            print(f"── Combined timing: {len(timing_df)} unique rows  "
-                  f"({timing_df['Date'].min().date()} → {timing_df['Date'].max().date()})")
+            timing_df = fetch_timing_table(email, password, num_days=10)
 
             # Save daily snapshot
             snap_path = DAILY_DIR / f"timing_{date_str}.csv"
@@ -372,12 +379,13 @@ def main():
 
             merge_vv_views_from_timing(timing_df)
 
-            # Trading day = daily newsletter's max date (authoritative — handles holidays)
-            src_df = daily_timing_df if daily_timing_df is not None else timing_df
-            trading_day = trading_day_from_timing(src_df)
-            print(f"  Trading day resolved from daily table: {trading_day}")
-        else:
-            print(f"  ⚠️  Both timing fetches failed — falling back to last weekday: {trading_day}")
+            # Trading day = most recent date from API (authoritative — handles holidays)
+            trading_day = trading_day_from_timing(timing_df)
+            print(f"  Trading day resolved from API: {trading_day}")
+
+        except Exception as e:
+            print(f"  ⚠️  REST API timing fetch failed: {e}")
+            print(f"  ⚠️  Falling back to last weekday: {trading_day}")
         print()
 
     # ── SOURCE 1: StockViewer ─────────────────────────────────────────────────
