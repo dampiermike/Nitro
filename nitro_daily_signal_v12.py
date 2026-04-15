@@ -29,7 +29,8 @@ from pathlib import Path
 # ── Config ────────────────────────────────────────────────────────────────────
 GMAIL_USER = os.environ.get('GOOGLE_EMAIL', 'dampiermike@gmail.com')
 GMAIL_PASS = os.environ.get('GOOGLE_APP_PASSWORD', '')
-TO_EMAIL   = ['dampiermike@gmail.com', 'dampier777@gmail.com']
+TO_EMAIL   = ['dampiermike@gmail.com', 'ddampier777@gmail.com',
+              '2256144680@tmomail.net', '3038818222@vtext.com']
 
 NITRO_DIR = Path('/Users/mikedampier/Documents/Development/Nitro')
 DATA_DIR  = NITRO_DIR / 'data' / 'csv' / 'history'
@@ -119,6 +120,7 @@ def load_data():
     sqqq_raw = pd.read_csv(SQQQ_FILE)
     sqqq_raw['Date'] = pd.to_datetime(sqqq_raw['Date'], errors='coerce')
     sqqq_raw = sqqq_raw.dropna(subset=['Date']).sort_values('Date').reset_index(drop=True)
+    sqqq_raw = sqqq_raw.rename(columns={'Close': 'sqqq_close'})
 
     # Merge
     df = vv.merge(qqq[['Date', 'Open', 'High', 'Low', 'Close',
@@ -126,6 +128,7 @@ def load_data():
                         'o2c_PSQ', 'c2c_PSQ', 'pc2o_PSQ']], on='Date', how='inner')
     df = df.merge(tqqq[['Date', 'tqqq_open', 'tqqq_close', 'tqqq_rt',
                          'tqqq_atr', 'tqqq_o2c', 'tqqq_c2c', 'tqqq_pc2o']], on='Date', how='left')
+    df = df.merge(sqqq_raw[['Date', 'sqqq_close']], on='Date', how='left')
     df = df.merge(vix, on='Date', how='left')
     df = df.sort_values('Date').reset_index(drop=True)
 
@@ -568,6 +571,12 @@ def get_signal(df, trades, final_state):
 
     actions = []
     notes   = []
+    # Sizing recommendation: (ticker, price, size_factor, label)
+    #   size_factor — 1.0 for full size, 1/3 for SQQQ
+    #   None means no new entry today (already holding or staying flat)
+    sizing  = None
+    sqqq_close = df['sqqq_close'].iloc[i] if 'sqqq_close' in df.columns else float('nan')
+    health = _health_factor(vix, tatr, bsr)
 
     if in_trade:
         unrealized = (cum_mult - 1) * 100
@@ -597,9 +606,29 @@ def get_signal(df, trades, final_state):
             instr_name = 'QQQ' if inst == 'QQQ' else 'SQQQ (1/3 position)'
             dir_word   = 'LONG' if inst == 'QQQ' else 'SHORT'
             entered    = entry_date_str()
-            actions.append(f"HOLD {dir_word} {instr_name} (entered {entered})")
-            notes.append(f"Unrealized P&L: {unrealized:+.2f}%")
-            if inst == 'QQQ':
+
+            # Priority 1a check: C/Up TQQQ preempt fires while in QQQ/PSQ
+            p1a_fires = (regime_i == 'C/Up' and not cup_entered
+                         and not np.isnan(trt) and trt < 1.40
+                         and bsr > 1.05
+                         and not np.isnan(tatr) and tatr < 7.0
+                         and not np.isnan(vix) and vix < 30)
+
+            if p1a_fires:
+                sizing = ('TQQQ', tqqq_close, 1.0, 'C/Up TQQQ preempt')
+                actions.append(f"SELL {instr_name} & BUY TQQQ at TOMORROW'S open (C/Up TQQQ trigger)")
+                notes.append(f"Held {dir_word} {instr_name} since {entered}  |  Unrealized P&L: {unrealized:+.2f}%")
+                notes.append(f"C/Up TQQQ preempt fires today: regime=C/Up  TQQQ-RT={trt:.3f} (<1.40)  "
+                             f"BSR={bsr:.2f} (>1.05)  TQQQ-ATR={tatr:.2f}% (<7.0)  VIX={vix:.1f} (<30)")
+                notes.append("Both legs fill at tomorrow's open: close existing position, open TQQQ long.")
+                notes.append("TP target:  TQQQ closes ≥ 150% of your fill price (+50%)")
+                notes.append("Hard stop:  TQQQ closes ≤ 94% of your fill price (-6%) → exit at NEXT day's open")
+                notes.append("MTI exit:   if MTI < 0.75 on any bar after entry → exit at NEXT day's open")
+                notes.append("Regime exit: if VectorVest prints C/Dn → exit at NEXT open")
+                notes.append("Pyramid:    once trade is up ≥20%, position is effectively sized at 1.25×")
+            elif inst == 'QQQ':
+                actions.append(f"HOLD {dir_word} {instr_name} (entered {entered})")
+                notes.append(f"Unrealized P&L: {unrealized:+.2f}%")
                 if stop_level:
                     notes.append(f"ATR stop:  QQQ closes ≤ ${stop_level:.2f} → exit same-day close")
                 notes.append("TP target: cumulative gain ≥ +5%")
@@ -613,7 +642,9 @@ def get_signal(df, trades, final_state):
                 if p1b_watch:
                     notes.append(f"⚠ Priority 1b ACTIVE: regime=C/Dn, RT={rt:.3f}, MTI={mti:.3f}")
                     notes.append("  → QQQ will exit at tomorrow's open; C/Dn TQQQ enters at same open")
-            else:
+            else:  # PSQ
+                actions.append(f"HOLD {dir_word} {instr_name} (entered {entered})")
+                notes.append(f"Unrealized P&L: {unrealized:+.2f}%")
                 if stop_level:
                     notes.append(f"ATR stop:  QQQ closes ≥ ${stop_level:.2f} → exit same-day close")
                 notes.append("TP target: cumulative gain ≥ +5%")
@@ -637,6 +668,7 @@ def get_signal(df, trades, final_state):
                       and regime_i != 'C/Up')
 
         if cup_signal:
+            sizing = ('TQQQ', tqqq_close, 1.0, 'C/Up TQQQ entry')
             actions.append("BUY TQQQ (C/Up signal) — enter at TOMORROW'S open")
             notes.append(f"Regime: C/Up  |  TQQQ-RT={trt:.3f}  BSR={bsr:.2f}  ATR={tatr:.2f}%  VIX={vix:.1f}")
             notes.append("TP target:  TQQQ closes ≥ 150% of your fill price (+50%)")
@@ -644,8 +676,8 @@ def get_signal(df, trades, final_state):
             notes.append("MTI exit:   if MTI < 0.75 on any bar after entry → exit at NEXT day's open")
             notes.append("Regime exit: if VectorVest prints C/Dn → exit at NEXT open")
             notes.append("Pyramid:    once trade is up ≥20%, position is effectively sized at 1.25×")
-            notes.append("Place a GTC stop-limit at 94% of your actual fill price after entry.")
         elif cdn_signal:
+            sizing = ('TQQQ', tqqq_close, 1.0, 'C/Dn TQQQ bounce')
             actions.append("BUY TQQQ (C/Dn bounce signal) — enter at TOMORROW'S open")
             notes.append(f"Regime: C/Dn  |  VVC-RT={rt:.3f}  MTI={mti:.3f}")
             notes.append("TP target:  TQQQ closes ≥ 150% of your fill price (+50%)")
@@ -653,10 +685,10 @@ def get_signal(df, trades, final_state):
             notes.append("MTI exit:   if MTI < 0.75 on any bar after entry → exit at NEXT day's open")
             notes.append("Exit signal: DEW Sell fires or C/Up transition → exit at NEXT open")
             notes.append("Pyramid:    once trade is up ≥20%, position is effectively sized at 1.25×")
-            notes.append("Place a GTC stop-limit at 94% of your actual fill price after entry.")
         elif qqq_signal:
             atr_mult = 2.0 if regime_i == 'C/Dn' else 1.0
             stop_est = qqq_close - atr_mult * atr14
+            sizing = ('QQQ', qqq_close, 1.0, 'DEW Buy QQQ entry')
             actions.append("BUY QQQ — enter at TOMORROW'S open")
             notes.append(f"Regime: {regime_i}  |  DEW Buy fired today  |  VVC-RT={rt:.3f}  BSR={bsr:.2f}  MTI={mti:.3f}")
             notes.append(f"ATR14 today: ${atr14:.2f}  |  ATR multiplier: {atr_mult:.0f}×  "
@@ -672,6 +704,7 @@ def get_signal(df, trades, final_state):
         elif psq_signal:
             atr_mult = 2.0 if regime_i == 'C/Dn' else 1.0
             stop_est = qqq_close + atr_mult * atr14
+            sizing = ('SQQQ', sqqq_close, 1.0/3.0, 'DEW Sell SQQQ entry (1/3 size)')
             actions.append("BUY SQQQ (1/3 position size) — enter at TOMORROW'S open")
             notes.append(f"Regime: {regime_i}  |  DEW Sell fired today  |  VVC-RT={rt:.3f}  BSR={bsr:.2f}  MTI={mti:.3f}")
             notes.append(f"ATR14 today: ${atr14:.2f}  |  ATR multiplier: {atr_mult:.0f}×  "
@@ -703,7 +736,7 @@ def get_signal(df, trades, final_state):
     notes.append(f"Health factor (last bar): {_health_factor(vix, tatr, bsr):.3f}  "
                  f"(position sizing scale — 0.25 min, 1.00 max)")
 
-    return actions, notes, last_date
+    return actions, notes, last_date, sizing, health
 
 
 def _health_factor(vix, tatr, bsr):
@@ -744,50 +777,55 @@ def main():
     print("Running engine...")
     trades, final_state, health_arr = run_engine(df)
 
-    # Simulated equity: compound raw trade returns through live start
-    # (reflects Step 7 baseline; health+pyramid scaling boosts actual Step 8 to ~$1.66B)
-    equity = STARTING_CAPITAL
+    # Simulated equity: starts at STARTING_CAPITAL on LIVE_START
+    # Compounds only trades that exit on or after LIVE_START (live-trading P&L)
+    equity    = STARTING_CAPITAL
+    equity_1m = 1_000_000.0
+    live_trades = [t for t in trades if pd.Timestamp(t['exit']) >= LIVE_START]
+    for t in live_trades:
+        equity    *= (1 + t['ret'])
+        equity_1m *= (1 + t['ret'])
     hist_trades = [t for t in trades if pd.Timestamp(t['exit']) < LIVE_START]
-    for t in hist_trades:
-        equity *= (1 + t['ret'])
 
     n_qqq  = sum(1 for t in trades if t['inst'] == 'QQQ')
     n_psq  = sum(1 for t in trades if t['inst'] == 'PSQ')
     n_tqqq = sum(1 for t in trades if t['inst'] == 'TQQQ')
     print(f"Total trades through last bar: {len(trades)}  "
           f"(QQQ={n_qqq}, SQQQ={n_psq}, TQQQ={n_tqqq})")
-    print(f"Historical trades through {LIVE_START.date()}: {len(hist_trades)}")
-    print(f"Simulated equity at live start: ${equity:,.2f}")
+    print(f"Historical trades before {LIVE_START.date()} (excluded): {len(hist_trades)}")
+    print(f"Live trades since {LIVE_START.date()}: {len(live_trades)}")
+    print(f"Simulated equity (starting ${STARTING_CAPITAL:,.0f} on {LIVE_START.date()}): ${equity:,.2f}")
+    print(f"Simulated equity (starting $1,000,000 on {LIVE_START.date()}): ${equity_1m:,.2f}")
 
-    actions, notes, data_date = get_signal(df, trades, final_state)
+    actions, notes, data_date, sizing, health = get_signal(df, trades, final_state)
 
     # Build report body
     lines = []
     lines.append("Dampier Nitro++ v12 — Daily Signal")
     lines.append(f"Data through: {data_date}  |  Signal for: tomorrow's open")
     lines.append(f"Simulated account equity: ${equity:,.2f}")
+    lines.append(f"Simulated account equity (starting $1,000,000): ${equity_1m:,.2f}")
     lines.append("=" * 60)
     lines.append("")
     for a in actions:
-        lines.append(f"  ▶  {a}")
+        lines.append(a)
     lines.append("")
+    if sizing is not None:
+        ticker, price, size_factor, label = sizing
+        invest_pct = health * size_factor * 100.0
+        lines.append(f"Volatility-Sized Position ({label})")
+        lines.append(f"  Reference price (today's close, proxy for tomorrow's open): ${price:.2f}")
+        lines.append(f"  Invest: {invest_pct:.0f}%")
+        if ticker == 'TQQQ':
+            lines.append("  GTC stop-limit at 94% fill price")
+            lines.append(f"  Take profit at 150% fill price (~${price * 1.50:.2f} based on today's close)")
+        else:
+            lines.append(f"  Take profit at +5% cumulative gain (~${price * 1.05:.2f} based on today's close)")
+        lines.append("")
     lines.append("Details:")
     for n in notes:
-        lines.append(f"  {n}")
-    lines.append("")
-    lines.append("=" * 60)
-    lines.append(f"Last {min(5, len(trades))} completed trades:")
-    for t in trades[-5:]:
-        inst_label = 'SQQQ' if t['inst'] == 'PSQ' else t['inst']
-        lines.append(f"  {t['entry']}→{t['exit']}  {inst_label:4s}  "
-                     f"{t['ret']*100:+.2f}%  {t['type']}")
-    lines.append("")
-    lines.append("Exit fill rules (reference):")
-    lines.append("  TP / ATR / DEW reversal   → same-day close fill")
-    lines.append("  Regime flip / TQQQ stop   → NEXT day open fill")
-    lines.append("  TQQQ TP                   → same-day close fill")
-    lines.append("  MTI exit (v12)            → NEXT day open fill")
-    lines.append("  Priority 1b (QQQ→TQQQ)   → both fill at NEXT day open")
+        if n.strip():
+            lines.append(f"  {n}")
 
     body = "\n".join(lines)
     print("\n" + body)
