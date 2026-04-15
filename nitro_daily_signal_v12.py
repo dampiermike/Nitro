@@ -615,7 +615,7 @@ def get_signal(df, trades, final_state):
                          and not np.isnan(vix) and vix < 30)
 
             if p1a_fires:
-                sizing = ('TQQQ', tqqq_close, 1.0, 'C/Up TQQQ preempt')
+                sizing = ('TQQQ', tqqq_close, 1.0, 'C/Up TQQQ trigger')
                 actions.append(f"SELL {instr_name} & BUY TQQQ at TOMORROW'S open (C/Up TQQQ trigger)")
                 notes.append(f"Held {dir_word} {instr_name} since {entered}  |  Unrealized P&L: {unrealized:+.2f}%")
                 notes.append(f"C/Up TQQQ preempt fires today: regime=C/Up  TQQQ-RT={trt:.3f} (<1.40)  "
@@ -802,10 +802,7 @@ def main():
     # Build report body
     lines = []
     lines.append("Dampier Nitro++ v12 — Daily Signal")
-    lines.append(f"Data through: {data_date}  |  Signal for: tomorrow's open")
-    lines.append(f"Simulated account equity: ${equity:,.2f}")
-    lines.append(f"Simulated account equity (starting $1,000,000): ${equity_1m:,.2f}")
-    lines.append("=" * 60)
+    lines.append(f"Data through: {data_date.strftime('%y-%m-%d')}  |  Signal for: tomorrow's open")
     lines.append("")
     for a in actions:
         lines.append(a)
@@ -814,7 +811,7 @@ def main():
         ticker, price, size_factor, label = sizing
         invest_pct = health * size_factor * 100.0
         lines.append(f"Volatility-Sized Position ({label})")
-        lines.append(f"  Reference price (today's close, proxy for tomorrow's open): ${price:.2f}")
+        lines.append(f"  Today's close: ${price:.2f}")
         lines.append(f"  Invest: {invest_pct:.0f}%")
         if ticker == 'TQQQ':
             lines.append("  GTC stop-limit at 94% fill price")
