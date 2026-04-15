@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from pathlib import Path
 
 # Dampier Nitro++ v10 — Backtest Engine
 # Build guide: Dampier_Nitro_PlusPlus_Build_Guide_v10.docx
@@ -13,7 +14,7 @@ import numpy as np
 #           CAGR 37.69% / Sharpe 1.6164 / Max DD -22.99%
 
 # ── File paths ───────────────────────────────────────────────────────────────
-DATA_DIR  = '/Users/mikedampier/Documents/Development/Nitro/data/csv/history'
+DATA_DIR  = str(Path(__file__).resolve().parent / 'data' / 'csv' / 'history')
 QQQ_FILE  = f'{DATA_DIR}/qqq-from-vv.csv'
 TQQQ_FILE = f'{DATA_DIR}/tqqq-from-vv.csv'
 SYN_FILE  = f'{DATA_DIR}/synthetic-tqqq-ohlc-1999-2010.csv'

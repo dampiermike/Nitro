@@ -35,7 +35,7 @@ import pandas as pd
 from playwright.sync_api import sync_playwright
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-NITRO_DIR    = Path('/Users/mikedampier/Documents/Development/Nitro')
+NITRO_DIR    = Path(__file__).resolve().parent
 DAILY_DIR    = NITRO_DIR / 'data' / 'csv' / 'daily'
 HIST_DIR     = NITRO_DIR / 'data' / 'csv' / 'history'
 VV_SCRIPT    = NITRO_DIR / 'fetch_vectorvest_stock.py'

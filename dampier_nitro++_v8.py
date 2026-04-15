@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from collections import Counter
+from pathlib import Path
 
 # Dampier Nitro++ v8 — Backtest Engine
 # Build guide: Dampier_Nitro_PlusPlus_Build_Guide_v8.docx
@@ -8,7 +9,7 @@ from collections import Counter
 # sub-step 6b (TQQQ isolated) added; same-bar chains formula corrected to count trades.
 
 # ── File paths ───────────────────────────────────────────────────────────────
-DATA_DIR  = '/Users/mikedampier/Documents/Development/Nitro/data/csv/history'
+DATA_DIR  = str(Path(__file__).resolve().parent / 'data' / 'csv' / 'history')
 QQQ_FILE  = f'{DATA_DIR}/qqq-from-vv.csv'        # QQQ OHLC + RT (VectorVest, split-adjusted)
 TQQQ_FILE = f'{DATA_DIR}/tqqq-from-vv.csv'       # Real TQQQ OHLC + RT (VectorVest, 2010+)
 SYN_FILE  = f'{DATA_DIR}/synthetic-tqqq-ohlc-1999-2010.csv'  # Synthetic TQQQ OHLC + RT_v6

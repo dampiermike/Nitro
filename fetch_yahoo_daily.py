@@ -20,7 +20,7 @@ import pandas as pd
 import yfinance as yf
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-NITRO_DIR   = Path('/Users/mikedampier/Documents/Development/Nitro')
+NITRO_DIR   = Path(__file__).resolve().parent
 HIST_DIR    = NITRO_DIR / 'data' / 'csv' / 'history'
 DAILY_DIR   = NITRO_DIR / 'data' / 'csv' / 'daily'
 DAILY_DIR.mkdir(parents=True, exist_ok=True)

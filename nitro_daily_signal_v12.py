@@ -32,7 +32,7 @@ GMAIL_PASS = os.environ.get('GOOGLE_APP_PASSWORD', '')
 TO_EMAIL   = ['dampiermike@gmail.com', 'ddampier777@gmail.com',
               '2256144680@tmomail.net', '3038818222@vtext.com']
 
-NITRO_DIR = Path('/Users/mikedampier/Documents/Development/Nitro')
+NITRO_DIR = Path(__file__).resolve().parent
 DATA_DIR  = NITRO_DIR / 'data' / 'csv' / 'history'
 
 QQQ_FILE  = DATA_DIR / 'qqq-from-vv.csv'
