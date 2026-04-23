@@ -19,6 +19,7 @@ Usage:
 import os
 import sys
 import smtplib
+import subprocess
 import numpy as np
 import pandas as pd
 from datetime import date
@@ -29,8 +30,8 @@ from pathlib import Path
 # ── Config ────────────────────────────────────────────────────────────────────
 GMAIL_USER = os.environ.get('GOOGLE_EMAIL', 'dampiermike@gmail.com')
 GMAIL_PASS = os.environ.get('GOOGLE_APP_PASSWORD', '')
-TO_EMAIL   = ['dampiermike@gmail.com', 'ddampier777@gmail.com',
-              '2256144680@tmomail.net', '3038818222@vtext.com']
+TO_EMAIL    = ['dampiermike@gmail.com', 'ddampier777@gmail.com']
+SMS_NUMBERS = ['+12256144680', '+13038818222']
 
 NITRO_DIR = Path(__file__).resolve().parent
 DATA_DIR  = NITRO_DIR / 'data' / 'csv' / 'history'
@@ -751,6 +752,19 @@ def _health_factor(vix, tatr, bsr):
 
 # ── Email ─────────────────────────────────────────────────────────────────────
 
+def build_sms_summary(actions, notes, data_date) -> str:
+    if not actions:
+        return f"Nitro {data_date.strftime('%y-%m-%d')}: No signal"
+    import re
+    a = re.sub(r' position \(entered [^)]+\)', '', actions[0])
+    pnl = ''
+    for n in notes:
+        if 'Unrealized P&L' in n:
+            pnl = ' ' + n.split(':', 1)[1].strip()
+            break
+    return f"Nitro {data_date.strftime('%y-%m-%d')}: {a}{pnl}"[:160]
+
+
 def send_email(subject, body_text):
     msg = MIMEMultipart('alternative')
     msg['Subject'] = subject
@@ -762,14 +776,22 @@ def send_email(subject, body_text):
         server.sendmail(GMAIL_USER, TO_EMAIL, msg.as_string())
 
 
+def send_imessage(numbers, body):
+    safe = body.replace('\\', '\\\\').replace('"', '\\"')
+    for num in numbers:
+        script = (
+            'tell application "Messages"\n'
+            '  set svc to first service whose service type = iMessage\n'
+            f'  send "{safe}" to participant "{num}" of svc\n'
+            'end tell'
+        )
+        subprocess.run(['osascript', '-e', script], check=False)
+
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
     today = date.today()
-    if today.weekday() >= 5:
-        print(f"Today is {today.strftime('%A')} — skipping.")
-        sys.exit(0)
-
     print(f"Nitro++ v12 Daily Signal  {today}\n")
     print("Loading data...")
     df = load_data()
@@ -847,6 +869,9 @@ def main():
     print(f"\nSending email to {TO_EMAIL} ...")
     send_email(subject, body)
     print("Email sent.")
+    sms = build_sms_summary(actions, notes, data_date)
+    send_imessage(SMS_NUMBERS, sms)
+    print(f"iMessage sent to {SMS_NUMBERS}: {sms}")
 
 
 if __name__ == '__main__':

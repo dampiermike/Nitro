@@ -84,12 +84,6 @@ def save_history(df: pd.DataFrame, path: Path):
 
 def main():
     today = date.today()
-
-    # Skip weekends
-    if today.weekday() >= 5:
-        print(f"Today is {today.strftime('%A')} — skipping (weekday only).")
-        sys.exit(0)
-
     date_str = today.strftime('%Y-%m-%d')
     print(f"fetch_yahoo_daily  {date_str}\n")
 

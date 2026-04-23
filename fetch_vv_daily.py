@@ -354,10 +354,6 @@ def main():
 
     today = date.today()
 
-    if today.weekday() >= 5:
-        print(f"Today is {today.strftime('%A')} — skipping (weekday only).")
-        sys.exit(0)
-
     # trading_day resolved after timing fetch (authoritative); fallback = last weekday
     trading_day = last_trading_day(today)
     date_str    = today.strftime("%Y-%m-%d")
