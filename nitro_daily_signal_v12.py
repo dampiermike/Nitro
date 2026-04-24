@@ -30,8 +30,8 @@ from pathlib import Path
 # ── Config ────────────────────────────────────────────────────────────────────
 GMAIL_USER = os.environ.get('GOOGLE_EMAIL', 'dampiermike@gmail.com')
 GMAIL_PASS = os.environ.get('GOOGLE_APP_PASSWORD', '')
-TO_EMAIL    = ['dampiermike@gmail.com', 'ddampier777@gmail.com']
-SMS_NUMBERS = ['+12256144680', '+13038818222']
+TO_EMAIL    = ['dampiermike@gmail.com', 'ddampier777@gmail.com', 'brooke.hoover@yahoo.com']
+SMS_NUMBERS = ['+12256144680', '+13038818222', '+18137815601']
 
 NITRO_DIR = Path(__file__).resolve().parent
 DATA_DIR  = NITRO_DIR / 'data' / 'csv' / 'history'
