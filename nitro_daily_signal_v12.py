@@ -32,6 +32,9 @@ GMAIL_USER = os.environ.get('GOOGLE_EMAIL', 'dampiermike@gmail.com')
 GMAIL_PASS = os.environ.get('GOOGLE_APP_PASSWORD', '')
 TO_EMAIL    = ['dampiermike@gmail.com', 'ddampier777@gmail.com', 'brooke.hoover@yahoo.com']
 SMS_NUMBERS = ['+12256144680', '+13038818222', '+18137815601']
+# Numbers that must be sent via SMS (Continuity relay through paired iPhone)
+# rather than iMessage — e.g. Android/Verizon recipients where iMessage bounces.
+SMS_FORCE   = {'+18137815601'}
 
 NITRO_DIR = Path(__file__).resolve().parent
 DATA_DIR  = NITRO_DIR / 'data' / 'csv' / 'history'
@@ -779,13 +782,17 @@ def send_email(subject, body_text):
 def send_imessage(numbers, body):
     safe = body.replace('\\', '\\\\').replace('"', '\\"')
     for num in numbers:
+        service_type = 'SMS' if num in SMS_FORCE else 'iMessage'
         script = (
             'tell application "Messages"\n'
-            '  set svc to first service whose service type = iMessage\n'
+            f'  set svc to first service whose service type = {service_type}\n'
             f'  send "{safe}" to participant "{num}" of svc\n'
             'end tell'
         )
-        subprocess.run(['osascript', '-e', script], check=False)
+        try:
+            subprocess.run(['osascript', '-e', script], check=False, timeout=30)
+        except subprocess.TimeoutExpired:
+            print(f"  warning: osascript send to {num} timed out after 30s — continuing")
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────

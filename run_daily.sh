@@ -60,6 +60,27 @@ except Exception as e:
 ' "$subject" "$body_file"
 }
 
+# ── Git publish helper ────────────────────────────────────────────────────────
+# Stages data/, commits, and pushes to origin/main using GOOGLE_EMAIL + GIT_TOKEN.
+# Returns non-zero on any failure so the caller can warn without aborting the run.
+git_publish() {
+    if [ -z "$GIT_TOKEN" ];     then echo "WARN: GIT_TOKEN not set — skipping git push";     return 1; fi
+    if [ -z "$GOOGLE_EMAIL" ];  then echo "WARN: GOOGLE_EMAIL not set — skipping git push";  return 1; fi
+
+    git add data/csv/daily data/csv/history || return 1
+    if git diff --cached --quiet; then
+        echo "No data changes to commit."
+        return 0
+    fi
+    git -c user.email="$GOOGLE_EMAIL" -c user.name="$GOOGLE_EMAIL" \
+        commit -m "Daily data update — $(date '+%Y-%m-%d')" || return 1
+
+    local encoded_user="${GOOGLE_EMAIL//@/%40}"
+    local push_url="https://${encoded_user}:${GIT_TOKEN}@github.com/dampiermike/Nitro.git"
+    git -c credential.helper= push "$push_url" HEAD:main || return 1
+    echo "Pushed to origin/main."
+}
+
 # ── Failure trap ──────────────────────────────────────────────────────────────
 on_failure() {
     local rc=$?
@@ -86,16 +107,20 @@ trap on_failure ERR
     echo "=========================================="
 
     echo
-    echo "── Step 1/3: Yahoo daily fetch (SQQQ, VIX) ──"
+    echo "── Step 1/4: Yahoo daily fetch (SQQQ, VIX) ──"
     $PY fetch_yahoo_daily.py
 
     echo
-    echo "── Step 2/3: VectorVest daily fetch (QQQ, TQQQ, timing) ──"
+    echo "── Step 2/4: VectorVest daily fetch (QQQ, TQQQ, timing) ──"
     $PY fetch_vv_daily.py
 
     echo
-    echo "── Step 3/3: Daily signal report ──"
+    echo "── Step 3/4: Daily signal report ──"
     $PY nitro_daily_signal_v12.py
+
+    echo
+    echo "── Step 4/4: Commit & push data ──"
+    git_publish || echo "WARN: git commit/push failed (continuing)"
 
     echo
     echo "=========================================="
