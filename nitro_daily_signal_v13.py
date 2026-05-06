@@ -10,9 +10,22 @@ and reports:
 
 import os
 import sys
+import smtplib
+import subprocess
 import importlib.util
 import pandas as pd
 import numpy as np
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+# ── Email / SMS config ─────────────────────────────────────────────────────────
+GMAIL_USER  = os.environ.get('GOOGLE_EMAIL', 'dampiermike@gmail.com')
+GMAIL_PASS  = os.environ.get('GOOGLE_APP_PASSWORD', '')
+TO_EMAIL    = ['dampiermike@gmail.com', 'ddampier777@gmail.com', 'brooke.hoover@yahoo.com']
+SMS_NUMBERS = ['+12256144680', '+13038818222', '+18137815601']
+# Numbers that must be sent via SMS (Continuity relay through paired iPhone)
+# rather than iMessage — e.g. Android/Verizon recipients where iMessage bounces.
+SMS_FORCE   = {'+18137815601'}
 
 # ── Load backtest module via importlib (++ in filename) ────────────────────────
 _base = os.path.dirname(os.path.abspath(__file__))
@@ -586,7 +599,85 @@ def print_report(df_full, state, pending, a, N, trades):
 
     lines.append("")
     lines.append(rule("═"))
-    print("\n".join(lines))
+    body = "\n".join(lines)
+    print(body)
+    return body, today_str
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Notifications
+# ──────────────────────────────────────────────────────────────────────────────
+def build_subject(state, pending, today_str):
+    action = pending["action"]
+    if action == "ENTER":
+        return f"Nitro++ v13 Signal {today_str}: BUY {pending['entry_inst']}"
+    if action == "EXIT":
+        return f"Nitro++ v13 Signal {today_str}: SELL {state['instrument']} ({pending.get('exit_type','exit')})"
+    if action == "BLOCKED":
+        return f"Nitro++ v13 Signal {today_str}: BLOCKED ({pending.get('entry_inst','?')})"
+    if state["in_trade"]:
+        inst = state["instrument"]
+        if inst == "TQQQ":
+            tag = "C/Dn TQQQ" if state.get("cdn_active") else "C/Up TQQQ"
+            if state.get("pyramid_on"):
+                tag += " [PYRAMID]"
+            return f"Nitro++ v13 Signal {today_str}: HOLD {tag}"
+        return f"Nitro++ v13 Signal {today_str}: HOLD {inst}"
+    return f"Nitro++ v13 Signal {today_str}: FLAT"
+
+
+def build_sms_summary(state, pending, today_str):
+    short = today_str[2:]  # YY-MM-DD
+    action = pending["action"]
+    if action == "ENTER":
+        inst = pending["entry_inst"]
+        verb = "BUY" if inst != "PSQ" else "SHORT"
+        msg = f"Nitro {short}: {verb} {inst} at open"
+    elif action == "EXIT":
+        msg = f"Nitro {short}: SELL {state['instrument']} at open ({pending.get('exit_type','')})".rstrip(" ()")
+    elif action == "BLOCKED":
+        msg = f"Nitro {short}: BLOCKED {pending.get('entry_inst','')}".rstrip()
+    elif state["in_trade"]:
+        inst = state["instrument"]
+        verb = "PYRAMID" if state.get("pyramid_on") else "HOLD"
+        msg = f"Nitro {short}: {verb} {inst}"
+        tm = pending.get("today_mult")
+        if tm is not None:
+            pnl = (tm - 1.0) * 100.0
+            msg += f"  {pnl:+.2f}%"
+    else:
+        msg = f"Nitro {short}: HOLD FLAT"
+    return msg[:160]
+
+
+def send_email(subject, body_text):
+    if not GMAIL_PASS:
+        print("send_email: GOOGLE_APP_PASSWORD not set — skipping")
+        return
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = subject
+    msg['From']    = GMAIL_USER
+    msg['To']      = ', '.join(TO_EMAIL)
+    msg.attach(MIMEText(body_text, 'plain'))
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+        server.login(GMAIL_USER, GMAIL_PASS)
+        server.sendmail(GMAIL_USER, TO_EMAIL, msg.as_string())
+
+
+def send_imessage(numbers, body):
+    safe = body.replace('\\', '\\\\').replace('"', '\\"')
+    for num in numbers:
+        service_type = 'SMS' if num in SMS_FORCE else 'iMessage'
+        script = (
+            'tell application "Messages"\n'
+            f'  set svc to first service whose service type = {service_type}\n'
+            f'  send "{safe}" to participant "{num}" of svc\n'
+            'end tell'
+        )
+        try:
+            subprocess.run(['osascript', '-e', script], check=False, timeout=30)
+        except subprocess.TimeoutExpired:
+            print(f"  warning: osascript send to {num} timed out after 30s — continuing")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -607,7 +698,16 @@ def main():
     print("Evaluating today's bar …\n")
     pending = evaluate_last_bar(a, N, state)
 
-    print_report(df_full, state, pending, a, N, trades)
+    body, today_str = print_report(df_full, state, pending, a, N, trades)
+
+    subject = build_subject(state, pending, today_str)
+    sms     = build_sms_summary(state, pending, today_str)
+
+    print(f"\nSending email to {TO_EMAIL} ...")
+    send_email(subject, body)
+    print("Email sent.")
+    send_imessage(SMS_NUMBERS, sms)
+    print(f"iMessage sent to {SMS_NUMBERS}: {sms}")
 
 
 if __name__ == "__main__":
