@@ -10,14 +10,27 @@ Live mapping:
 """
 import os
 import sys
+import smtplib
+import subprocess
 import numpy as np
 import pandas as pd
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 _base = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _base)
 from nitro_v16 import load_data, compute_dew, get_pmp
 
 START_DATE = pd.Timestamp("2000-01-01")
+
+# ── Email / SMS config ─────────────────────────────────────────────────────────
+GMAIL_USER  = os.environ.get("GOOGLE_EMAIL", "dampiermike@gmail.com")
+GMAIL_PASS  = os.environ.get("GOOGLE_APP_PASSWORD", "")
+TO_EMAIL    = ["dampiermike@gmail.com", "ddampier777@gmail.com", "brooke.hoover@yahoo.com"]
+SMS_NUMBERS = ["+12256144680", "+13038818222", "+18137815601"]
+# Numbers that must be sent via SMS (Continuity relay through paired iPhone)
+# rather than iMessage — e.g. Android/Verizon recipients where iMessage bounces.
+SMS_FORCE   = {"+18137815601"}
 
 
 # ----------------------------------------------------------------------
@@ -719,7 +732,101 @@ def print_report(df, state, pending, trades):
 
     out.append("")
     out.append(rule("═"))
-    print("\n".join(out))
+    body = "\n".join(out)
+    print(body)
+    return body, today_str
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Notifications
+# ──────────────────────────────────────────────────────────────────────────────
+def build_subject(state, pending, today_str):
+    a = pending["action"]
+    if a == "ENTER":
+        return f"Nitro++ v16 Signal {today_str}: BUY {pending['entry_inst']}"
+    if a == "EXIT":
+        return f"Nitro++ v16 Signal {today_str}: SELL {state['instrument']} ({pending.get('exit_type','exit')})"
+    if a == "PREEMPT_1A":
+        return f"Nitro++ v16 Signal {today_str}: PREEMPT 1a — SELL {state['instrument']} → BUY TQQQ"
+    if a == "PREEMPT_1B":
+        return f"Nitro++ v16 Signal {today_str}: PREEMPT 1b — SELL QQQ → BUY TQQQ"
+    if a == "BLOCKED":
+        return f"Nitro++ v16 Signal {today_str}: BLOCKED ({pending.get('entry_inst','?')})"
+    if state["in_trade"]:
+        if pending.get("decay_action") == "SCALE_DOWN":
+            return f"Nitro++ v16 Signal {today_str}: SCALE DOWN TQQQ → 0.30×"
+        if pending.get("decay_action") == "SCALE_UP":
+            return f"Nitro++ v16 Signal {today_str}: SCALE UP TQQQ → full"
+        inst = state["instrument"]
+        if inst == "TQQQ":
+            tag = "C/Dn TQQQ" if state.get("cdn_active") else "C/Up TQQQ"
+            if state.get("pyramid_on"):
+                tag += " [PYRAMID]"
+            return f"Nitro++ v16 Signal {today_str}: HOLD {tag}"
+        return f"Nitro++ v16 Signal {today_str}: HOLD {inst}"
+    return f"Nitro++ v16 Signal {today_str}: FLAT"
+
+
+def build_sms_summary(state, pending, today_str):
+    short = today_str[2:]  # YY-MM-DD
+    a = pending["action"]
+    if a == "ENTER":
+        inst = pending["entry_inst"]
+        verb = "BUY" if inst != "INV" else "SHORT"
+        msg = f"Nitro {short}: {verb} {inst} at open"
+    elif a == "EXIT":
+        msg = f"Nitro {short}: SELL {state['instrument']} at open ({pending.get('exit_type','')})".rstrip(" ()")
+    elif a == "PREEMPT_1A":
+        msg = f"Nitro {short}: PREEMPT1a SELL {state['instrument']}, BUY TQQQ (cup)"
+    elif a == "PREEMPT_1B":
+        msg = f"Nitro {short}: PREEMPT1b SELL QQQ, BUY TQQQ (C/Dn)"
+    elif a == "BLOCKED":
+        msg = f"Nitro {short}: BLOCKED {pending.get('entry_inst','')}".rstrip()
+    elif state["in_trade"] and pending.get("decay_action") == "SCALE_DOWN":
+        msg = f"Nitro {short}: SCALE DOWN TQQQ at open (decay → 0.30×)"
+    elif state["in_trade"] and pending.get("decay_action") == "SCALE_UP":
+        msg = f"Nitro {short}: SCALE UP TQQQ at open (decay clears → full)"
+    elif state["in_trade"]:
+        inst = state["instrument"]
+        verb = "PYRAMID" if state.get("pyramid_on") else "HOLD"
+        msg = f"Nitro {short}: {verb} {inst}"
+        tm = pending.get("today_mult")
+        if tm is not None:
+            pnl = (tm - 1.0) * 100.0
+            msg += f"  {pnl:+.2f}%"
+    else:
+        msg = f"Nitro {short}: HOLD FLAT"
+    return msg[:160]
+
+
+def send_email(subject, body_text):
+    if not GMAIL_PASS:
+        print("send_email: GOOGLE_APP_PASSWORD not set — skipping")
+        return
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"]    = GMAIL_USER
+    msg["To"]      = ", ".join(TO_EMAIL)
+    msg.attach(MIMEText(body_text, "plain"))
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(GMAIL_USER, GMAIL_PASS)
+        server.sendmail(GMAIL_USER, TO_EMAIL, msg.as_string())
+
+
+def send_imessage(numbers, body):
+    safe = body.replace("\\", "\\\\").replace('"', '\\"')
+    for num in numbers:
+        service_type = "SMS" if num in SMS_FORCE else "iMessage"
+        script = (
+            'tell application "Messages"\n'
+            f"  set svc to first service whose service type = {service_type}\n"
+            f'  send "{safe}" to participant "{num}" of svc\n'
+            "end tell"
+        )
+        try:
+            subprocess.run(["osascript", "-e", script], check=False, timeout=30)
+        except subprocess.TimeoutExpired:
+            print(f"  warning: osascript send to {num} timed out after 30s — continuing")
 
 
 # ----------------------------------------------------------------------
@@ -743,7 +850,16 @@ def main():
 
     pending = evaluate_last_bar(df_full, state)
 
-    print_report(df_full, state, pending, trades)
+    body, today_str = print_report(df_full, state, pending, trades)
+
+    subject = build_subject(state, pending, today_str)
+    sms     = build_sms_summary(state, pending, today_str)
+
+    print(f"\nSending email to {TO_EMAIL} ...")
+    send_email(subject, body)
+    print("Email sent.")
+    send_imessage(SMS_NUMBERS, sms)
+    print(f"iMessage sent to {SMS_NUMBERS}: {sms}")
 
 
 if __name__ == "__main__":

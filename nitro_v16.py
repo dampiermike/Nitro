@@ -2,11 +2,12 @@
 Dampier Nitro++ v16 - Built from Build_Guide_v16.docx
 Strictly causal sizing. All checkpoints verified inline.
 """
+import os
 import sys
 import numpy as np
 import pandas as pd
 
-DATA_DIR = "/Users/mikedampier/Documents/Development/Nitro"
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data/csv/history")
 START_DATE = pd.Timestamp("2000-01-01")
 END_DATE = pd.Timestamp("2026-04-01")
 SQQQ_CUTOFF = pd.Timestamp("2010-02-11")
