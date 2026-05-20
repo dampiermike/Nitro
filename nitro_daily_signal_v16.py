@@ -814,19 +814,26 @@ def send_email(subject, body_text):
 
 
 def send_imessage(numbers, body):
-    safe = body.replace("\\", "\\\\").replace('"', '\\"')
     for num in numbers:
         service_type = "SMS" if num in SMS_FORCE else "iMessage"
+        # Body is passed as an argv argument (item 1 of argv) rather than
+        # embedded in the script text — this avoids AppleScript string-literal
+        # breakage on quotes, backslashes and newlines.
         script = (
-            'tell application "Messages"\n'
+            "on run argv\n"
             f"  set svc to first service whose service type = {service_type}\n"
-            f'  send "{safe}" to participant "{num}" of svc\n'
-            "end tell"
+            f'  send (item 1 of argv) to participant "{num}" of svc\n'
+            "end run"
         )
         try:
-            subprocess.run(["osascript", "-e", script], check=False, timeout=30)
+            subprocess.run(["osascript", "-e", script, body],
+                           check=True, capture_output=True, timeout=30)
+            print(f"  iMessage sent to {num} ({service_type})")
         except subprocess.TimeoutExpired:
-            print(f"  warning: osascript send to {num} timed out after 30s — continuing")
+            print(f"  WARNING: iMessage to {num} timed out after 30s — not delivered")
+        except subprocess.CalledProcessError as e:
+            err = e.stderr.decode(errors="replace").strip() if e.stderr else "(no detail)"
+            print(f"  WARNING: iMessage to {num} FAILED — not delivered: {err}")
 
 
 # ----------------------------------------------------------------------
@@ -858,8 +865,8 @@ def main():
     print(f"\nSending email to {TO_EMAIL} ...")
     send_email(subject, body)
     print("Email sent.")
+    print(f"Sending iMessage/SMS to {SMS_NUMBERS}: {sms}")
     send_imessage(SMS_NUMBERS, sms)
-    print(f"iMessage sent to {SMS_NUMBERS}: {sms}")
 
 
 if __name__ == "__main__":
