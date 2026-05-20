@@ -107,19 +107,23 @@ trap on_failure ERR
     echo "=========================================="
 
     echo
-    echo "── Step 1/4: Yahoo daily fetch (SQQQ, VIX) ──"
+    echo "── Step 1/5: Yahoo daily fetch (SQQQ, VIX) ──"
     $PY fetch_yahoo_daily.py
 
     echo
-    echo "── Step 2/4: VectorVest daily fetch (QQQ, TQQQ, timing) ──"
+    echo "── Step 2/5: VectorVest daily fetch (QQQ, TQQQ, timing) ──"
     $PY fetch_vv_daily.py
 
     echo
-    echo "── Step 3/4: Daily signal report ──"
+    echo "── Step 3/5: Freshness check (aborts run if any file stale) ──"
+    $PY validate_freshness.py
+
+    echo
+    echo "── Step 4/5: Daily signal report ──"
     $PY nitro_daily_signal_v16.py
 
     echo
-    echo "── Step 4/4: Commit & push data ──"
+    echo "── Step 5/5: Commit & push data ──"
     git_publish || echo "WARN: git commit/push failed (continuing)"
 
     echo
