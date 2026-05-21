@@ -1,0 +1,9 @@
+{
+  "url": "https://api.vectorvest.com/MarketData/v3/markettime?region=US&extendedHours=false&connectionId=28c9eebd-46ae-46a5-a94a-04c089cc2b8e&requestId=1779395060874-357737",
+  "body": {
+    "StreamId": "1673471453",
+    "MarketTime": "2026-05-21T15:59:00",
+    "MarketMode": "Closed",
+    "NextMarketCheckSeconds": 60
+  }
+}

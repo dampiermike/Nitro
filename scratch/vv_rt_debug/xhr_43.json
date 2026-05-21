@@ -1,0 +1,6 @@
+{
+  "url": "https://browser-intake-datadoghq.com/api/v2/rum?ddsource=browser&ddtags=sdk_version%3A5.35.1%2Capi%3Afetch%2Cenv%3APROD%2Cservice%3Atensor&dd-api-key=puba4d7f1ea8119caafb20ce4ec7e67358c&dd-evp-origin-version=5.35.1&dd-evp-origin=browser&dd-request-id=3e876799-69c1-4cbb-9a1d-ae08545b45d3&batch_time=1779395061040",
+  "body": {
+    "request_id": "3e876799-69c1-4cbb-9a1d-ae08545b45d3"
+  }
+}

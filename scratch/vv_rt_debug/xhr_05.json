@@ -1,0 +1,15 @@
+{
+  "url": "https://api.vectorvest.com/MarketData/v3/streaming/signalr/negotiate?clientProtocol=2.1&connectionData=%5B%7B%22name%22%3A%22streaminghub%22%7D%5D&_=1779395060270",
+  "body": {
+    "Url": "/MarketData/v3/streaming/signalr",
+    "ConnectionToken": "AQAAANCMnd8BFdERjHoAwE/Cl+sBAAAAKvDTZ0Cla0KvcvcrVplMBgAAAAACAAAAAAADZgAAwAAAABAAAACUHZdawEo/GEySv+DSeeBMAAAAAASAAACgAAAAEAAAAFlvF8yUvxieMlq42+eLy4goAAAACfW+uhmb+l2G44QCKzmgcGhNy72VkEBIgI2+219xXLeT/Mmqjeev7hQAAAD7wGgzNEx5XtbmhJUGkjhbHD4LBw==",
+    "ConnectionId": "28c9eebd-46ae-46a5-a94a-04c089cc2b8e",
+    "KeepAliveTimeout": 20.0,
+    "DisconnectTimeout": 30.0,
+    "ConnectionTimeout": 110.0,
+    "TryWebSockets": true,
+    "ProtocolVersion": "1.5",
+    "TransportConnectTimeout": 5.0,
+    "LongPollDelay": 0.0
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "url": "https://api.vectorvest.com/MarketData/v3/symbol?query=SPX&regions=US&maxResults=1",
+  "body": {
+    "Regions": "US",
+    "Query": "SPX",
+    "Symbols": [
+      {
+        "Id": 5384,
+        "StockId": "US_SY_5384",
+        "IndustryId": "US_IN_657",
+        "SectorId": "US_SC_260",
+        "StockKey": "US_SY_5384",
+        "IndustryKey": "US_IN_657",
+        "SectorKey": "US_SC_260",
+        "Symbol": "SPX",
+        "Company": "S & P 500",
+        "Exchange": "xI",
+        "Region": "US",
+        "Industry": "Market (Indices)",
+        "Sector": "Market"
+      }
+    ],
+    "NumberSymbolMatches": 12
+  }
+}

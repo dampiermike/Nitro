@@ -1,0 +1,6 @@
+{
+  "url": "https://api.vectorvest.com/intent/v1/streaming/signalr/start?transport=webSockets&clientProtocol=2.1&connectionToken=AQAAANCMnd8BFdERjHoAwE%2FCl%2BsBAAAA1LdZkC3sOUmD37qwkNrgDQAAAAACAAAAAAADZgAAwAAAABAAAAAlzj6COMgDREOk%2B3TKWx9UAAAAAASAAACgAAAAEAAAAMf5cNyGuAmmWr4x%2Bh3pMeIoAAAA25i6SCMwd2smph3BntXP7cWqFIs5F39wAmSK59xrmMnkATS2QBaljhQAAAA1sZ8zo9qO1VUoJqDHbWRQbp9nXw%3D%3D&connectionData=%5B%7B%22name%22%3A%22streaminghub%22%7D%5D&_=1779395060814",
+  "body": {
+    "Response": "started"
+  }
+}

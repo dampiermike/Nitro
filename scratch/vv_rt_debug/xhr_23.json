@@ -1,0 +1,49 @@
+{
+  "url": "https://api.vectorvest.com/MarketData/v3/quote?fields=Symbol&fields=CompanyName&fields=CompanyDescription&fields=Sector&fields=ActualPrice&fields=OpenPrice&fields=StopPrice&fields=TradingDate&fields=RatingDescription&fields=Recommendation&fields=ValueSafetyTiming&fields=RelativeValue&fields=RelativeSafety&fields=RelativeTiming&fields=TotalChange&fields=Value&fields=ComfortIndex&fields=GrowthRate&fields=EarningsPerShare&fields=PriceToEarnings&fields=EarningsYield&fields=GrowthToPE&fields=Dividend&fields=DividendYield&fields=DividendSafety&fields=DividendGrowth&fields=AverageVolume&fields=PercentChangeVolume&fields=PercentChangePrice&fields=YieldSafetyGrowth&fields=Sales&fields=SalesGrowth&fields=SalesPerShare&fields=PriceToSalesRatio&fields=Shares&fields=MarketCap&fields=ParentIndustryId&fields=ParentSectorId&fields=Industry&fields=StreamId&symbol=TQQQ&region=US&useExtendedHours=false&includeRatingDescription=true&requestToUnlockProprietaryQuote=true",
+  "body": [
+    {
+      "Symbol": "TQQQ",
+      "CompanyName": "ProShares UltraPro QQQ",
+      "Industry": "ETFs (US\\LargeCap)",
+      "Sector": "ETFs",
+      "TradingDate": "2026-05-21T15:59:00",
+      "OpenPrice": 75.18,
+      "TotalChange": 0.44,
+      "AverageVolume": 88125477.0,
+      "Dividend": 0.315,
+      "EarningsPerShare": 0.0,
+      "GrowthRate": 0.0,
+      "Shares": 465.9,
+      "Sales": 0.0,
+      "SalesGrowth": 0,
+      "ActualPrice": 76.95,
+      "EarningsYield": 0.0,
+      "DividendYield": 0.41,
+      "PriceToEarnings": 999.99,
+      "GrowthToPE": 0.0,
+      "SalesPerShare": 0.0,
+      "PercentChangeVolume": -0.169828,
+      "PercentChangePrice": 0.005751,
+      "PriceToSalesRatio": 0.0,
+      "MarketCap": 35851.005,
+      "CompanyDescription": "TQQQ provides 3x leveraged exposure to a modified market-cap-weighted index tracking 100 of the largest non-financial firms listed on NASDAQ.",
+      "ProprietaryData": {
+        "Value": 76.95,
+        "RelativeValue": 1.0,
+        "RelativeSafety": 1.0,
+        "RelativeTiming": 1.9,
+        "ValueSafetyTiming": 1.41,
+        "StopPrice": 61.36,
+        "Recommendation": "B",
+        "DividendSafety": 58,
+        "DividendGrowth": 18,
+        "YieldSafetyGrowth": 0.93,
+        "ComfortIndex": 1.62,
+        "RatingDescription": "<strong>TQQQ</strong> is fairly valued compared to its price, has about average safety, and is currently rated a <span class=\"green\">Buy</span>."
+      },
+      "StockId": "US_SY_15954",
+      "ParentIndustryId": "US_IN_805",
+      "ParentSectorId": "US_SC_380"
+    }
+  ]
+}

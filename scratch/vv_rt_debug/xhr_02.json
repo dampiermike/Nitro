@@ -1,0 +1,16 @@
+{
+  "url": "https://api.vectorvest.com/user/api/v1/layout/type/Chart",
+  "body": {
+    "layoutType": "Chart",
+    "current": {
+      "contents": "RL_NT_16"
+    },
+    "namedLayouts": [
+      {
+        "id": "RL_NT_16",
+        "isUserLayout": false,
+        "name": "VectorVest Simple"
+      }
+    ]
+  }
+}

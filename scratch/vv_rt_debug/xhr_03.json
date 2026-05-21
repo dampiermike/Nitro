@@ -1,0 +1,8 @@
+{
+  "url": "https://api.vectorvest.com/user/api/v1/layout/type/MyWatchlistGrid",
+  "body": {
+    "layoutType": "MyWatchlistGrid",
+    "current": {},
+    "namedLayouts": []
+  }
+}

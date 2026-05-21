@@ -1,0 +1,6 @@
+{
+  "url": "https://api.vectorvest.com/MarketData/v3/streaming/signalr/start?transport=webSockets&clientProtocol=2.1&connectionToken=AQAAANCMnd8BFdERjHoAwE%2FCl%2BsBAAAAKvDTZ0Cla0KvcvcrVplMBgAAAAACAAAAAAADZgAAwAAAABAAAACUHZdawEo%2FGEySv%2BDSeeBMAAAAAASAAACgAAAAEAAAAFlvF8yUvxieMlq42%2BeLy4goAAAACfW%2Buhmb%2Bl2G44QCKzmgcGhNy72VkEBIgI2%2B219xXLeT%2FMmqjeev7hQAAAD7wGgzNEx5XtbmhJUGkjhbHD4LBw%3D%3D&connectionData=%5B%7B%22name%22%3A%22streaminghub%22%7D%5D&_=1779395060524",
+  "body": {
+    "Response": "started"
+  }
+}

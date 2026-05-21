@@ -1,0 +1,8 @@
+{
+  "url": "https://coachingalerts.blob.core.windows.net/config/coaching-config.json?t=1779395060277",
+  "body": {
+    "mode": "off",
+    "lastUpdated": "2025-01-10T12:00:00Z",
+    "updatedBy": "admin"
+  }
+}

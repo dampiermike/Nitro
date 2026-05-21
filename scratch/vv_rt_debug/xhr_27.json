@@ -1,0 +1,59 @@
+{
+  "url": "https://api.vectorvest.com/mobile/v4/access/claim/",
+  "body": {
+    "AddOnProducts": [
+      {
+        "Name": "AutoTester"
+      },
+      {
+        "Name": "ProTrader"
+      },
+      {
+        "Name": "Watchdog"
+      }
+    ],
+    "ExistingSubscription": true,
+    "Products": [
+      {
+        "DataFeedType": "RealTime",
+        "Expiration": "",
+        "IsAutoConvertTrial": false,
+        "IsTrial": false,
+        "ProductTier": "Desktop",
+        "ProductType": "Unknown",
+        "RegionId": "US"
+      },
+      {
+        "DataFeedType": "Intraday",
+        "Expiration": "",
+        "IsAutoConvertTrial": false,
+        "IsTrial": false,
+        "ProductTier": "Desktop",
+        "ProductType": "Unknown",
+        "RegionId": "CA"
+      },
+      {
+        "DataFeedType": "EndOfDay",
+        "Expiration": "",
+        "IsAutoConvertTrial": false,
+        "IsTrial": false,
+        "ProductTier": "Desktop",
+        "ProductType": "Unknown",
+        "RegionId": "EU"
+      },
+      {
+        "DataFeedType": "EndOfDay",
+        "Expiration": "",
+        "IsAutoConvertTrial": false,
+        "IsTrial": false,
+        "ProductTier": "Desktop",
+        "ProductType": "Unknown",
+        "RegionId": "AU"
+      }
+    ],
+    "TradeNowEligibleRegions": [
+      "US"
+    ],
+    "UserId": 11895155
+  }
+}

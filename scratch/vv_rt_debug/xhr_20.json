@@ -1,0 +1,24 @@
+{
+  "url": "https://api.vectorvest.com/MarketData/v3/quote?fields=StockId&fields=Symbol&fields=LastPrice&fields=ActualPrice&fields=CompanyName&fields=RelativeSafety&fields=RelativeTiming&fields=RelativeValue&fields=ValueSafetyTiming&fields=Value&fields=StopPrice&fields=TotalChange&fields=PercentChangePrice&fields=Recommendation&fields=RatingDescription&fields=StreamId&symbol=TQQQ&region=US&useExtendedHours=false&includeRatingDescription=true&requestToUnlockProprietaryQuote=true",
+  "body": [
+    {
+      "Symbol": "TQQQ",
+      "CompanyName": "ProShares UltraPro QQQ",
+      "LastPrice": 76.95,
+      "TotalChange": 0.44,
+      "ActualPrice": 76.95,
+      "PercentChangePrice": 0.005751,
+      "ProprietaryData": {
+        "Value": 76.95,
+        "RelativeValue": 1.0,
+        "RelativeSafety": 1.0,
+        "RelativeTiming": 1.9,
+        "ValueSafetyTiming": 1.41,
+        "StopPrice": 61.36,
+        "Recommendation": "B",
+        "RatingDescription": "<strong>TQQQ</strong> is fairly valued compared to its price, has about average safety, and is currently rated a <span class=\"green\">Buy</span>."
+      },
+      "StockId": "US_SY_15954"
+    }
+  ]
+}

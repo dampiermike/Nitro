@@ -1,0 +1,10 @@
+{
+  "url": "https://api.vectorvest.com/user/api/v1/layout/RL_NT_16",
+  "body": {
+    "id": "RL_NT_16",
+    "layoutType": "Chart",
+    "isUserLayout": false,
+    "name": "VectorVest Simple",
+    "contents": "{\r\n  \"indicators\": [\r\n    {\r\n      \"id\": \"OHLC\",\r\n      \"name\": \"OHLC\",\r\n      \"color\": {\r\n        \"positive\": \"#4ee7c6\",\r\n        \"negative\": \"#d94a49\"\r\n      },\r\n      \"lineType\": \"ohlc\"\r\n    },\r\n    {\r\n      \"id\": \"StopPrice\",\r\n      \"name\": \"Stop Price\",\r\n      \"color\": \"#54b5b7\",\r\n      \"lineType\": \"dotted\"\r\n    },\r\n    {\r\n      \"id\": \"RelativeTiming\",\r\n      \"name\": \"RT\",\r\n      \"color\": \"#a42117\",\r\n      \"lineType\": \"dashed\"\r\n    },\r\n    {\r\n      \"id\": \"EarningsPerShare\",\r\n      \"name\": \"EPS\",\r\n      \"color\": \"#6d74bc\",\r\n      \"lineType\": \"dotted\"\r\n    }\r\n  ]\r\n \r\n}"
+  }
+}

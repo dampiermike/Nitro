@@ -1,0 +1,7 @@
+{
+  "url": "https://api.vectorvest.com/user/api/v1/layout/type/ChartDrawing/itemKey?itemKey=US_SY_15032",
+  "body": {
+    "layoutType": "ChartDrawing",
+    "current": {}
+  }
+}

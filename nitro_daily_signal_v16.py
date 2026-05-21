@@ -819,10 +819,17 @@ def send_imessage(numbers, body):
         # Body is passed as an argv argument (item 1 of argv) rather than
         # embedded in the script text — this avoids AppleScript string-literal
         # breakage on quotes, backslashes and newlines.
+        #
+        # `service`, `participant` and `send` are terms from the Messages
+        # app's dictionary, so the whole script must run inside a
+        # `tell application "Messages"` block — without it AppleScript fails
+        # to compile with "-2741: Expected class name but found identifier".
         script = (
             "on run argv\n"
-            f"  set svc to first service whose service type = {service_type}\n"
-            f'  send (item 1 of argv) to participant "{num}" of svc\n'
+            '  tell application "Messages"\n'
+            f"    set svc to first service whose service type = {service_type}\n"
+            f'    send (item 1 of argv) to participant "{num}" of svc\n'
+            "  end tell\n"
             "end run"
         )
         try:

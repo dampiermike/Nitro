@@ -1,0 +1,25 @@
+{
+  "url": "https://api.vectorvest.com/MarketData/v3/quote?fields=StockId&fields=Symbol&fields=LastPrice&fields=CompanyName&fields=RelativeSafety&fields=RelativeTiming&fields=RelativeValue&fields=ValueSafetyTiming&fields=Value&fields=StopPrice&fields=TotalChange&fields=PercentChangePrice&fields=Recommendation&fields=OpenPrice&fields=HighPrice&fields=LowPrice&fields=StreamId&symbol=DJI&region=US&requestToUnlockProprietaryQuote=true",
+  "body": [
+    {
+      "Symbol": "DJI",
+      "CompanyName": "DJ Indu Avg",
+      "OpenPrice": 49983.8,
+      "HighPrice": 50381.4102,
+      "LowPrice": 49697.4688,
+      "LastPrice": 50285.6602,
+      "TotalChange": 276.3086,
+      "PercentChangePrice": 0.005525,
+      "ProprietaryData": {
+        "Value": 50285.6602,
+        "RelativeValue": 1.0,
+        "RelativeSafety": 1.0,
+        "RelativeTiming": 1.21,
+        "ValueSafetyTiming": 1.09,
+        "StopPrice": 46429.6797,
+        "Recommendation": "B"
+      },
+      "StockId": "US_SY_15032"
+    }
+  ]
+}

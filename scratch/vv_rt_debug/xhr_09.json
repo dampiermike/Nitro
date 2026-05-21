@@ -1,0 +1,10 @@
+{
+  "url": "https://api.vectorvest.com/user/api/v1/layout/RL_NT_2018",
+  "body": {
+    "id": "RL_NT_2018",
+    "layoutType": "Annotation",
+    "isUserLayout": false,
+    "name": "Default Annotation Layout",
+    "contents": "{\"annotations\":[{\"id\":\"Splits\",\"name\":\"Splits\",\"isSelected\":false},{\"id\":\"Dividends\",\"name\":\"Dividends\",\"isSelected\":false},{\"id\":\"Earnings\",\"name\":\"Earnings\",\"isSelected\":false}]}"
+  }
+}

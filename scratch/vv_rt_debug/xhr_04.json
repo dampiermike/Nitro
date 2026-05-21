@@ -1,0 +1,8 @@
+{
+  "url": "https://api.vectorvest.com/user/api/v1/layout/type/VectorVestWLGrid",
+  "body": {
+    "layoutType": "VectorVestWLGrid",
+    "current": {},
+    "namedLayouts": []
+  }
+}

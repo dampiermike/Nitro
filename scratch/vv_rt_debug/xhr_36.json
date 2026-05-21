@@ -1,0 +1,25 @@
+{
+  "url": "https://api.vectorvest.com/MarketData/v3/quote?fields=StockId&fields=Symbol&fields=LastPrice&fields=CompanyName&fields=RelativeSafety&fields=RelativeTiming&fields=RelativeValue&fields=ValueSafetyTiming&fields=Value&fields=StopPrice&fields=TotalChange&fields=PercentChangePrice&fields=Recommendation&fields=OpenPrice&fields=HighPrice&fields=LowPrice&fields=StreamId&symbol=SPX&region=US&requestToUnlockProprietaryQuote=true",
+  "body": [
+    {
+      "Symbol": "SPX",
+      "CompanyName": "S & P 500",
+      "OpenPrice": 7410.78,
+      "HighPrice": 7465.96,
+      "LowPrice": 7389.48,
+      "LastPrice": 7445.7202,
+      "TotalChange": 12.75,
+      "PercentChangePrice": 0.001715,
+      "ProprietaryData": {
+        "Value": 7445.7202,
+        "RelativeValue": 1.0,
+        "RelativeSafety": 1.0,
+        "RelativeTiming": 1.28,
+        "ValueSafetyTiming": 1.11,
+        "StopPrice": 6789.6299,
+        "Recommendation": "B"
+      },
+      "StockId": "US_SY_5384"
+    }
+  ]
+}

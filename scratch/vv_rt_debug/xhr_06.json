@@ -1,0 +1,14 @@
+{
+  "url": "https://api.vectorvest.com/user/api/v1/layout/type/OverViewDesktop",
+  "body": {
+    "layoutType": "OverViewDesktop",
+    "current": {},
+    "namedLayouts": [
+      {
+        "id": "RL_NT_3930",
+        "isUserLayout": false,
+        "name": "VectorVest OverViewDesktop"
+      }
+    ]
+  }
+}

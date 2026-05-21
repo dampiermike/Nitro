@@ -1,0 +1,14 @@
+{
+  "url": "https://api.vectorvest.com/mobile/v4/US/AUTH/",
+  "body": {
+    "SC": 0,
+    "SM": "",
+    "STNT": 0,
+    "TM": 639149918606061079,
+    "CT": 639149918605935906,
+    "DQA": 0,
+    "LQA": 0,
+    "SUT": 2,
+    "TK": "d193144f-68e3-41e1-836e-e3c0e5fbcf0a"
+  }
+}

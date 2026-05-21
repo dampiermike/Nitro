@@ -1,0 +1,25 @@
+{
+  "url": "https://api.vectorvest.com/MarketData/v3/quote?fields=StockId&fields=Symbol&fields=LastPrice&fields=CompanyName&fields=RelativeSafety&fields=RelativeTiming&fields=RelativeValue&fields=ValueSafetyTiming&fields=Value&fields=StopPrice&fields=TotalChange&fields=PercentChangePrice&fields=Recommendation&fields=OpenPrice&fields=HighPrice&fields=LowPrice&fields=StreamId&symbol=IXIC&region=US&requestToUnlockProprietaryQuote=true",
+  "body": [
+    {
+      "Symbol": "IXIC",
+      "CompanyName": "NASDAQ Comp",
+      "OpenPrice": 26143.62,
+      "HighPrice": 26403.5742,
+      "LowPrice": 26039.373,
+      "LastPrice": 26293.0977,
+      "TotalChange": 22.7383,
+      "PercentChangePrice": 0.000866,
+      "ProprietaryData": {
+        "Value": 26293.0996,
+        "RelativeValue": 1.0,
+        "RelativeSafety": 1.0,
+        "RelativeTiming": 1.39,
+        "ValueSafetyTiming": 1.17,
+        "StopPrice": 23557.4199,
+        "Recommendation": "B"
+      },
+      "StockId": "US_SY_8774"
+    }
+  ]
+}

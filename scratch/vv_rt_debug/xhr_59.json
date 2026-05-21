@@ -1,0 +1,24 @@
+{
+  "url": "https://api.vectorvest.com/MarketData/v3/quote?fields=StockId&fields=Symbol&fields=LastPrice&fields=CompanyName&fields=RelativeSafety&fields=RelativeTiming&fields=RelativeValue&fields=ValueSafetyTiming&fields=Value&fields=StopPrice&fields=TotalChange&fields=PercentChangePrice&fields=Recommendation&fields=EarningsPerShare&fields=StreamId&symbol=TQQQ&region=US&requestToUnlockProprietaryQuote=true&connectionId=28c9eebd-46ae-46a5-a94a-04c089cc2b8e&requestId=1779395060880-340641&pagingParameters.pageNumber=1",
+  "body": [
+    {
+      "StreamId": "1311158380",
+      "Symbol": "TQQQ",
+      "CompanyName": "ProShares UltraPro QQQ",
+      "LastPrice": 76.95,
+      "TotalChange": 0.44,
+      "EarningsPerShare": 0.0,
+      "PercentChangePrice": 0.005751,
+      "ProprietaryData": {
+        "Value": 76.95,
+        "RelativeValue": 1.0,
+        "RelativeSafety": 1.0,
+        "RelativeTiming": 1.9,
+        "ValueSafetyTiming": 1.41,
+        "StopPrice": 61.36,
+        "Recommendation": "B"
+      },
+      "StockId": "US_SY_15954"
+    }
+  ]
+}

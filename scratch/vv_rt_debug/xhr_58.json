@@ -1,0 +1,182 @@
+{
+  "url": "https://api.vectorvest.com/MarketData/v3/markettiming/US?includeMarketTimingGauge=true&includeAdvancesDeclines=false&includeAtAGlance=false&includeColorGuard=true&includeIndices=false&includeTicker=false&includeMarketTimingSystems=false&useExtendedHours=false&connectionId=28c9eebd-46ae-46a5-a94a-04c089cc2b8e&requestId=1779395060871-526983",
+  "body": {
+    "MarketTimingGauge": {
+      "Title": "Neutral",
+      "Description": "VectorVest does not advocate buying any stocks at this time.",
+      "Position": 3,
+      "StreamId": "2014701282"
+    },
+    "ColorGuard": {
+      "Items": [
+        {
+          "TradingDate": "2026-05-21T00:00:00",
+          "FormattedDate": "May 21",
+          "Price": 82.7045,
+          "PriceColor": "Y",
+          "RelativeTiming": 1.003,
+          "RelativeTimingColor": "Y",
+          "BuySellRatio": 1.288,
+          "BuySellRatioColor": "Y",
+          "MarketTimingIndicator": 1.178,
+          "Trend": "DnUp",
+          "MarketCall": "C/Up",
+          "MarketCallColor": "G",
+          "Confirmation": "NotConfirmed",
+          "StreamId": "1696884867",
+          "GaugePosition": "Neutral",
+          "InvestorAdvice": {
+            "ColorText": "Three yellow lights",
+            "SituationText": "DnUp Situation",
+            "PrudentAdvice": "Prudent Investors should not buy stocks at this time.",
+            "AgressiveAdvice": "Aggressive Investors and Traders should play the market as it develops."
+          },
+          "Description": "VectorVest does not advocate buying any stocks at this time.",
+          "MarketTimingTrend": "Hold",
+          "MarketTimingTrendText": "Hold",
+          "MarketTimingTrendColor": "Y",
+          "NoteworthyCondition": "TrendingDown",
+          "NoteworthyConditionTitle": "Trending Down",
+          "NoteworthyConditionText": "The Market may be transitioning so caution is advised. Conditions are unfavorable for buying stocks at this time.",
+          "NoteworthyConditionColor": "R",
+          "NoteworthyActionUrl": "https://offers.vectorvest.com/app-articles/noteworthy/hold/trendingdown"
+        },
+        {
+          "TradingDate": "2026-05-20T00:00:00",
+          "FormattedDate": "May 20",
+          "Price": 82.2429962158203,
+          "PriceColor": "Y",
+          "RelativeTiming": 0.99,
+          "RelativeTimingColor": "Y",
+          "BuySellRatio": 1.184,
+          "BuySellRatioColor": "G",
+          "MarketTimingIndicator": 1.12,
+          "Trend": "DnUp",
+          "MarketCall": "C/Up",
+          "MarketCallColor": "G",
+          "Confirmation": "NotConfirmed",
+          "StreamId": "1696884867",
+          "GaugePosition": "MildlyBullish",
+          "InvestorAdvice": {
+            "ColorText": "One green light",
+            "SituationText": "DnUp Situation",
+            "PrudentAdvice": "Prudent Investors should not buy stocks at this time.",
+            "AgressiveAdvice": "Aggressive Investors and Traders should play the market as it develops."
+          },
+          "Description": "VectorVest advocates caution when buying stocks at this time.",
+          "MarketTimingTrend": "Hold",
+          "MarketTimingTrendText": "Hold",
+          "MarketTimingTrendColor": "Y"
+        },
+        {
+          "TradingDate": "2026-05-19T00:00:00",
+          "FormattedDate": "May 19",
+          "Price": 80.9489974975586,
+          "PriceColor": "R",
+          "RelativeTiming": 0.95,
+          "RelativeTimingColor": "R",
+          "BuySellRatio": 0.815,
+          "BuySellRatioColor": "R",
+          "MarketTimingIndicator": 1.06,
+          "Trend": "DnUp",
+          "MarketCall": "C/Up",
+          "MarketCallColor": "G",
+          "Confirmation": "NotConfirmed",
+          "StreamId": "1696884867",
+          "GaugePosition": "Bearish",
+          "InvestorAdvice": {
+            "ColorText": "Three red lights",
+            "SituationText": "DnUp Situation",
+            "PrudentAdvice": "Prudent Investors should not buy stocks at this time.",
+            "AgressiveAdvice": "Aggressive Investors and Traders should play the market with a bias to the downside."
+          },
+          "Description": "VectorVest does not advocate buying any stocks at this time.",
+          "MarketTimingTrend": "Hold",
+          "MarketTimingTrendText": "Hold",
+          "MarketTimingTrendColor": "Y"
+        },
+        {
+          "TradingDate": "2026-05-18T00:00:00",
+          "FormattedDate": "May 18",
+          "Price": 81.5419998168945,
+          "PriceColor": "R",
+          "RelativeTiming": 0.97,
+          "RelativeTimingColor": "Y",
+          "BuySellRatio": 0.991,
+          "BuySellRatioColor": "Y",
+          "MarketTimingIndicator": 1.13,
+          "Trend": "DnUp",
+          "MarketCall": "C/Up",
+          "MarketCallColor": "G",
+          "Confirmation": "NotConfirmed",
+          "StreamId": "1696884867",
+          "GaugePosition": "MildlyBearish",
+          "InvestorAdvice": {
+            "ColorText": "One red light",
+            "SituationText": "DnUp Situation",
+            "PrudentAdvice": "Prudent Investors should not buy stocks at this time.",
+            "AgressiveAdvice": "Aggressive Investors and Traders should play the market as it develops with a bias to the downside."
+          },
+          "Description": "VectorVest does not advocate buying any stocks at this time.",
+          "MarketTimingTrend": "Hold",
+          "MarketTimingTrendText": "Hold",
+          "MarketTimingTrendColor": "Y"
+        },
+        {
+          "TradingDate": "2026-05-15T00:00:00",
+          "FormattedDate": "May 15",
+          "Price": 81.629997253418,
+          "PriceColor": "Y",
+          "RelativeTiming": 0.96,
+          "RelativeTimingColor": "R",
+          "BuySellRatio": 0.896,
+          "BuySellRatioColor": "R",
+          "MarketTimingIndicator": 1.18,
+          "Trend": "DnUp",
+          "MarketCall": "C/Up",
+          "MarketCallColor": "G",
+          "Confirmation": "NotConfirmed",
+          "StreamId": "1696884867",
+          "GaugePosition": "SomewhatBearish",
+          "InvestorAdvice": {
+            "ColorText": "Two red lights",
+            "SituationText": "DnUp Situation",
+            "PrudentAdvice": "Prudent Investors should not buy stocks at this time.",
+            "AgressiveAdvice": "Aggressive Investors and Traders should play the market with a bias to the downside."
+          },
+          "Description": "VectorVest does not advocate buying any stocks at this time.",
+          "MarketTimingTrend": "Hold",
+          "MarketTimingTrendText": "Hold",
+          "MarketTimingTrendColor": "Y"
+        },
+        {
+          "TradingDate": "2026-05-14T00:00:00",
+          "FormattedDate": "May 14",
+          "Price": 83.0989990234375,
+          "PriceColor": "G",
+          "RelativeTiming": 1.01,
+          "RelativeTimingColor": "Y",
+          "BuySellRatio": 1.326,
+          "BuySellRatioColor": "Y",
+          "MarketTimingIndicator": 1.3,
+          "Trend": "UpUp",
+          "MarketCall": "C/Up",
+          "MarketCallColor": "G",
+          "Confirmation": "Confirmed",
+          "StreamId": "1696884867",
+          "GaugePosition": "MildlyBullish",
+          "InvestorAdvice": {
+            "ColorText": "One green light",
+            "SituationText": "UpUp Situation",
+            "PrudentAdvice": "Prudent Investors may buy stocks long if the market is rising.",
+            "AgressiveAdvice": "Aggressive Investors and Traders should play the market as it develops with a bias to the upside. "
+          },
+          "Description": "VectorVest advocates buying safe, undervalued stocks that are rising in price at this time.",
+          "MarketTimingTrend": "SafeToBuy",
+          "MarketTimingTrendText": "Safe To Buy",
+          "MarketTimingTrendColor": "G"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "url": "https://api.vectorvest.com/MarketData/v3/markettiming/US?includeMarketTimingGauge=false&includeAdvancesDeclines=false&includeAtAGlance=false&includeColorGuard=true&includeIndices=false&includeTicker=false&includeMarketTimingSystems=false&useExtendedHours=false&connectionId=28c9eebd-46ae-46a5-a94a-04c089cc2b8e&requestId=1779395060877-772960&numDaysColorGuard=1",
+  "body": {
+    "ColorGuard": {
+      "Items": [
+        {
+          "TradingDate": "2026-05-21T00:00:00",
+          "FormattedDate": "May 21",
+          "Price": 82.7045,
+          "PriceColor": "Y",
+          "RelativeTiming": 1.003,
+          "RelativeTimingColor": "Y",
+          "BuySellRatio": 1.288,
+          "BuySellRatioColor": "Y",
+          "MarketTimingIndicator": 1.178,
+          "Trend": "DnUp",
+          "MarketCall": "C/Up",
+          "MarketCallColor": "G",
+          "Confirmation": "NotConfirmed",
+          "StreamId": "1696884867",
+          "GaugePosition": "Neutral",
+          "InvestorAdvice": {
+            "ColorText": "Three yellow lights",
+            "SituationText": "DnUp Situation",
+            "PrudentAdvice": "Prudent Investors should not buy stocks at this time.",
+            "AgressiveAdvice": "Aggressive Investors and Traders should play the market as it develops."
+          },
+          "Description": "VectorVest does not advocate buying any stocks at this time.",
+          "MarketTimingTrend": "Hold",
+          "MarketTimingTrendText": "Hold",
+          "MarketTimingTrendColor": "Y",
+          "NoteworthyCondition": "TrendingDown",
+          "NoteworthyConditionTitle": "Trending Down",
+          "NoteworthyConditionText": "The Market may be transitioning so caution is advised. Conditions are unfavorable for buying stocks at this time.",
+          "NoteworthyConditionColor": "R",
+          "NoteworthyActionUrl": "https://offers.vectorvest.com/app-articles/noteworthy/hold/trendingdown"
+        }
+      ]
+    }
+  }
+}

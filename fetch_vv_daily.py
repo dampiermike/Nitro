@@ -1,105 +1,103 @@
 #!/usr/bin/env python3
 """
-Daily VectorVest end-of-day fetch — two sources combined:
+Daily VectorVest end-of-day fetch — pure REST, no browser.
 
-SOURCE 1 — StockViewer (VVC, TQQQ, QQQ)  [browser-based]
-  Primary source for VVC-Price (3 decimal places) and per-stock metrics.
+SOURCE 1 — Per-stock OHLCV + RT  (api.vectorvest.com/MarketData/v3)
+  For TQQQ and QQQ: resolves the symbol's StockId via /quote, then pulls a
+  rolling year of daily bars from /quotehistory — Open, High, Low, Close
+  (LastPrice), Volume (TotalVolume) and RT (RelativeTiming).
   Merges into:
-    qqq-from-vv.csv               (Open, High, Low, Close=Price, Volume, RT)
-    tqqq-from-vv.csv              (Open, High, Low, Close=Price, Volume, RT)
-    vectorvest-views-w3place-precision.csv  → today's VVC-Price + VVC-RT
+    qqq-from-vv.csv     (Date, Open, High, Low, Close, Volume, RT)
+    tqqq-from-vv.csv    (Date, Open, High, Low, Close, Volume, RT)
 
-SOURCE 2 — VectorVest REST API  [no browser required]
-  Replaces the old Views newsletter RSS/browser scrape.
-  Fetches market-wide indicators via api.vectorvest.com/MarketData/v3/markettiming/US:
-    MTI, Trend, % Buys, % Sells, BS Ratio, CG-Price, CG-RT, CG-BSR, VVC-Price, VVC-RT
-  Merges all new rows into:
+  This replaces the old StockViewer browser scrape, which broke and — worse —
+  silently wrote mis-dated bars (stamping the prior day's data with today's
+  date).  Every /quotehistory row carries an authoritative TradingDate, so the
+  merge is purely date-keyed and self-heals any mis-dated/stale rows inside the
+  reconcile window (see RECONCILE_DAYS).
+
+SOURCE 2 — Market timing  (api.vectorvest.com/MarketData/v3/markettiming/US)
+  Market-wide indicators: MTI, Trend, % Buys, % Sells, BS Ratio, CG-Price,
+  CG-RT, CG-BSR, VVC-Price, VVC-RT.  Merges new rows into:
     vectorvest-views-w3place-precision.csv
 
-For today's row in the VV views file:
-  - REST API provides all 11 columns (VVC-Price at full precision)
-  - StockViewer then overwrites VVC-Price with its own 3-decimal value (if available)
+Both sources authenticate with the same Bearer token from get_vv_token().
 
 Usage:
     python3 fetch_vv_daily.py
-    python3 fetch_vv_daily.py --symbols "VVC, TQQQ, QQQ"
-    python3 fetch_vv_daily.py --skip-stockviewer   # REST API only
-    python3 fetch_vv_daily.py --skip-timing        # StockViewer only
+    python3 fetch_vv_daily.py --symbols "TQQQ, QQQ"
+    python3 fetch_vv_daily.py --skip-stocks      # timing only
+    python3 fetch_vv_daily.py --skip-timing      # OHLCV/RT only
 """
-import os, sys, argparse, base64, importlib.util
-from datetime import datetime, date, timedelta
+import os, sys, argparse, base64
+from datetime import datetime, date
 from pathlib import Path
 
 import requests
 import pandas as pd
-from playwright.sync_api import sync_playwright
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-NITRO_DIR    = Path(__file__).resolve().parent
-DAILY_DIR    = NITRO_DIR / 'data' / 'csv' / 'daily'
-HIST_DIR     = NITRO_DIR / 'data' / 'csv' / 'history'
-VV_SCRIPT    = NITRO_DIR / 'fetch_vectorvest_stock.py'
-TIMING_SCRIPT = NITRO_DIR / 'fetch_vectorvest_timing.py'
-COOKIE_FILE  = Path('/Users/mikedampier/.openclaw/workspace/views_cookie.json')
-VV_TOKEN_URL  = 'https://www.vectorvest.com/identity2/issue/simple'
-VV_TIMING_URL = 'https://api.vectorvest.com/MarketData/v3/markettiming/US'
+NITRO_DIR = Path(__file__).resolve().parent
+DAILY_DIR = NITRO_DIR / 'data' / 'csv' / 'daily'
+HIST_DIR  = NITRO_DIR / 'data' / 'csv' / 'history'
 DAILY_DIR.mkdir(parents=True, exist_ok=True)
 
 DATE_FMT = '%-m/%-d/%y'   # M/D/YY — matches existing history file format
 
-# StockViewer DOM column order
-COLS = [
-    "Company","Symbol","Exch","Price","$Change","%PRC","Value",
-    "RV","RS","RT","VST","REC","Stop",
-    "GRT","EPS","EY","P/E","GPE",
-    "DIV","DY","DS","DG","YSG",
-    "Open","High","Low","Range",
-    "Volume","AvgVol","%Vol",
-    "Sales(M)","Sales GRT","SPS","P/S","Shares(M)","Mkt Cap($M)","CI",
-    "Industry","Sector"
-]
+# ── VectorVest REST endpoints ─────────────────────────────────────────────────
+VV_TOKEN_URL  = 'https://www.vectorvest.com/identity2/issue/simple'
+VV_API        = 'https://api.vectorvest.com/MarketData/v3'
+VV_TIMING_URL = f'{VV_API}/markettiming/US'
+
+# Symbol → from-vv history file.  Only symbols listed here can be fetched.
+OHLCV_FILES = {
+    'QQQ':  HIST_DIR / 'qqq-from-vv.csv',
+    'TQQQ': HIST_DIR / 'tqqq-from-vv.csv',
+}
+OHLCV_COLS = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'RT']
+
+# /quotehistory is treated as authoritative for the most recent N trading days:
+# rows in this window are overwritten with API data, which self-heals mis-dated
+# or stale bars.  Older API dates are only ever appended-if-missing — existing
+# rows older than the window are never modified.
+RECONCILE_DAYS = 10
 
 VV_VIEWS_FILE = HIST_DIR / 'vectorvest-views-w3place-precision.csv'
-VV_VIEWS_COLS = ['Date','VVC-Price','VVC-RT','% Buys','% Sells',
-                 'BS Ratio','CG-Price','CG-RT','CG-BSR','MTI','Trend']
+VV_VIEWS_COLS = ['Date', 'VVC-Price', 'VVC-RT', '% Buys', '% Sells',
+                 'BS Ratio', 'CG-Price', 'CG-RT', 'CG-BSR', 'MTI', 'Trend']
 
 
-# ── Date helpers ─────────────────────────────────────────────────────────────
+# ── Small coercion helpers ────────────────────────────────────────────────────
 
-def last_trading_day(ref: date = None) -> date:
-    """Return the most recent weekday on or before ref (defaults to today).
-    Saturday → Friday, Sunday → Friday, weekday → same day.
-    NOTE: does not account for market holidays — prefer using
-    trading_day_from_timing() when a timing DataFrame is available."""
-    d = ref or date.today()
-    if d.weekday() == 5:    # Saturday
-        return d - timedelta(days=1)
-    elif d.weekday() == 6:  # Sunday
-        return d - timedelta(days=2)
-    return d
+def _round(v, nd=4):
+    """Float-coerce and round; '' on failure (keeps a stray null out of the CSV)."""
+    try:
+        return round(float(v), nd)
+    except (TypeError, ValueError):
+        return ''
 
+
+def _int(v):
+    """Int-coerce; '' on failure."""
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return ''
+
+
+# ── Date helpers ──────────────────────────────────────────────────────────────
 
 def trading_day_from_timing(timing_df: pd.DataFrame) -> date:
-    """Use the timing table's most recent date as the authoritative trading day.
-    This correctly handles market holidays (e.g. Good Friday) that a simple
-    weekday check would miss."""
+    """Most recent date in the timing table — authoritative trading day
+    (correctly handles market holidays a weekday check would miss)."""
     return timing_df['Date'].max().date()
 
 
-# ── Module loaders ────────────────────────────────────────────────────────────
-
-def load_module(path: Path, name: str):
-    spec = importlib.util.spec_from_file_location(name, str(path))
-    mod  = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-# ── History helpers ───────────────────────────────────────────────────────────
+# ── History load/save ─────────────────────────────────────────────────────────
 
 def load_history(path: Path) -> pd.DataFrame:
     df = pd.read_csv(path, encoding='utf-8-sig')
-    df['Date'] = pd.to_datetime(df['Date'])
+    df['Date'] = pd.to_datetime(df['Date'], format='%m/%d/%y')
     return df
 
 
@@ -110,73 +108,11 @@ def save_history(df: pd.DataFrame, path: Path):
     out.to_csv(path, index=False, encoding='utf-8-sig' if bom else 'utf-8')
 
 
-# ── SOURCE 1: StockViewer fetch ───────────────────────────────────────────────
-
-def fetch_stockviewer(symbols: str, email: str, password: str) -> list[dict]:
-    vv = load_module(VV_SCRIPT, 'vvstock')
-
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        ctx  = browser.new_context()
-        page = ctx.new_page()
-
-        page.goto("https://www.vectorvest.com/vvlogin/login.aspx",
-                  wait_until="domcontentloaded")
-        vv.login(page, email, password)
-        page.wait_for_timeout(2000)
-
-        page.goto("https://www.vectorvest.com/vvlogin/ApplicationFrameset.aspx"
-                  "?type=3&ReturnURL=", wait_until="domcontentloaded")
-        page.wait_for_timeout(2000)
-        if "login" in page.url.lower():
-            vv.login(page, email, password)
-            page.wait_for_timeout(2000)
-
-        page.goto("https://www.vectorvest.com/vvexpress/us/StockViewer.aspx",
-                  wait_until="domcontentloaded")
-        page.wait_for_timeout(3000)
-        print(f"  StockViewer loaded: {page.title()}", flush=True)
-
-        page.select_option("select[name*='cboSearch']", value="0")
-        page.locator("input[name*='txtSymbol']").fill(symbols)
-        page.locator("input[name*='btnSearch']").click()
-        page.wait_for_load_state("domcontentloaded", timeout=15000)
-        page.wait_for_timeout(3000)
-
-        records  = []
-        sym_list = [s.strip().upper() for s in symbols.split(",")]
-
-        for row_el in page.locator("table tr").all():
-            cells      = row_el.locator("td").all()
-            clean      = [c.inner_text().strip() for c in cells]
-            clean      = [t for t in clean if t]
-            if len(clean) < 5:
-                continue
-            found_sym = None
-            for val in clean[:4]:
-                if val.upper() in sym_list:
-                    found_sym = val.upper()
-                    break
-            if not found_sym:
-                continue
-            sym_idx = next(i for i, v in enumerate(clean) if v.upper() == found_sym)
-            if sym_idx == 0:
-                continue
-            vals = [clean[sym_idx - 1]] + clean[sym_idx:]
-            rec  = dict(zip(COLS, vals[:len(COLS)]))
-            if not any(r.get('Symbol') == rec.get('Symbol') for r in records):
-                records.append(rec)
-                print(f"  Parsed: {rec.get('Symbol')} — {rec.get('Company')} @ {rec.get('Price')}")
-
-        ctx.close()
-        browser.close()
-        return records
-
-
-# ── SOURCE 2: VectorVest REST API timing ──────────────────────────────────────
+# ── Auth ──────────────────────────────────────────────────────────────────────
 
 def get_vv_token(email: str, password: str) -> str:
-    """Authenticate with VectorVest and return a Bearer token. No browser needed."""
+    """Authenticate with VectorVest and return a Bearer token. No browser needed.
+    The same token unlocks /markettiming, /quote and /quotehistory."""
     creds = base64.b64encode(f"{email}:{password}".encode()).decode()
     resp = requests.get(
         VV_TOKEN_URL,
@@ -193,14 +129,130 @@ def get_vv_token(email: str, password: str) -> str:
     return resp.json()["access_token"]
 
 
-def fetch_timing_table(email: str, password: str, num_days: int = 10) -> pd.DataFrame:
-    """Fetch market timing data via VectorVest REST API. No browser needed.
+# ── SOURCE 1: per-stock OHLCV + RT via REST ───────────────────────────────────
+
+def resolve_stock_id(token: str, symbol: str) -> str:
+    """Resolve a ticker to its VectorVest StockId via /quote (also logs today's RT
+    as a sanity cross-check against the /quotehistory series)."""
+    resp = requests.get(
+        f"{VV_API}/quote",
+        headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+        params=[
+            ("fields", "StockId"), ("fields", "Symbol"),
+            ("fields", "LastPrice"), ("fields", "RelativeTiming"),
+            ("symbol", symbol), ("region", "US"),
+            ("requestToUnlockProprietaryQuote", "true"),
+        ],
+        timeout=20,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    row = data[0] if isinstance(data, list) else data
+    stock_id = row.get("StockId")
+    if not stock_id:
+        raise RuntimeError(f"/quote returned no StockId for {symbol}: {row}")
+    rt = (row.get("ProprietaryData") or {}).get("RelativeTiming")
+    print(f"  {symbol}: StockId={stock_id}  (quote RT={rt}, Last={row.get('LastPrice')})")
+    return stock_id
+
+
+def fetch_ohlcv_rt_history(token: str, stock_id: str) -> pd.DataFrame:
+    """Pull ~1 year of daily OHLCV + RT for a StockId.
+    Returns a DataFrame with columns Date, Open, High, Low, Close, Volume, RT
+    sorted ascending by Date."""
+    resp = requests.get(
+        f"{VV_API}/quotehistory/{stock_id}",
+        headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+        params=[
+            ("fields", "TradingDate"), ("fields", "OpenPrice"),
+            ("fields", "HighPrice"), ("fields", "LowPrice"),
+            ("fields", "LastPrice"), ("fields", "TotalVolume"),
+            ("fields", "RelativeTiming"),
+            ("barFrequency", "Daily"),
+            ("rangeFrequency", "Yearly"), ("rangePeriod", "1"),
+        ],
+        timeout=25,
+    )
+    resp.raise_for_status()
+    items = resp.json().get("HistoryData", [])
+    if not items:
+        raise RuntimeError(f"/quotehistory returned no HistoryData for {stock_id}")
+
+    rows = []
+    for it in items:
+        td = it.get("TradingDate")
+        if not td:
+            continue
+        rows.append({
+            "Date":   pd.Timestamp(pd.to_datetime(td).date()),
+            "Open":   _round(it.get("OpenPrice")),
+            "High":   _round(it.get("HighPrice")),
+            "Low":    _round(it.get("LowPrice")),
+            "Close":  _round(it.get("LastPrice")),
+            "Volume": _int(it.get("TotalVolume")),
+            "RT":     _round(it.get("RelativeTiming")),
+        })
+    return pd.DataFrame(rows)[OHLCV_COLS].sort_values("Date").reset_index(drop=True)
+
+
+def merge_ohlcv_history(api_df: pd.DataFrame, hist_path: Path) -> tuple[int, int]:
+    """Reconcile API OHLCV+RT into a from-vv history file.
+
+    The most recent RECONCILE_DAYS trading days are overwritten with API data
+    (self-heals mis-dated/stale bars).  Older API dates are appended only when
+    the history file is missing them; pre-existing older rows are never touched.
+
+    Returns (rows_added, rows_corrected)."""
+    hist = load_history(hist_path)
+    hist['Date'] = pd.to_datetime(hist['Date']).dt.normalize()
+    api = api_df.copy()
+    api['Date'] = pd.to_datetime(api['Date']).dt.normalize()
+
+    recent = set(api['Date'].tail(RECONCILE_DAYS))
+    base = hist[~hist['Date'].isin(recent)]
+    base_dates = set(base['Date'])
+    # Bring in: everything in the reconcile window + any older API date the file lacks.
+    api_bring = api[api['Date'].isin(recent) | ~api['Date'].isin(base_dates)]
+
+    merged = pd.concat([base[OHLCV_COLS], api_bring[OHLCV_COLS]], ignore_index=True)
+    merged = (merged.drop_duplicates('Date', keep='last')
+                    .sort_values('Date').reset_index(drop=True))
+
+    # ── Diff vs the pre-merge file ────────────────────────────────────────────
+    old = {r['Date']: r for _, r in hist.iterrows()}
+    cmp_cols = ['Open', 'High', 'Low', 'Close', 'Volume', 'RT']
+    added, corrected = [], []
+    for _, r in merged.iterrows():
+        d = r['Date']
+        if d not in old:
+            added.append(d)
+        elif any(str(old[d][c]) != str(r[c]) for c in cmp_cols):
+            corrected.append(d)
+
+    save_history(merged, hist_path)
+
+    print(f"  ✅ {hist_path.name}: {len(merged)} rows  "
+          f"(latest {merged['Date'].max().date()})")
+    if added:
+        print(f"     added {len(added)}: "
+              f"{[d.date().isoformat() for d in sorted(added)]}")
+    if corrected:
+        print(f"     corrected {len(corrected)}: "
+              f"{[d.date().isoformat() for d in sorted(corrected)]}")
+    if not added and not corrected:
+        print(f"     no changes — already current")
+    return len(added), len(corrected)
+
+
+# ── SOURCE 2: VectorVest market timing via REST ───────────────────────────────
+
+def fetch_timing_table(token: str, num_days: int = 10) -> pd.DataFrame:
+    """Fetch market timing via the VectorVest REST API.
 
     Returns a DataFrame with columns matching vectorvest-views-w3place-precision.csv:
       Date, VVC-Price, VVC-RT, % Buys, % Sells, BS Ratio,
       CG-Price, CG-RT, CG-BSR, MTI, Trend
     """
-    token = get_vv_token(email, password)
     resp = requests.get(
         VV_TIMING_URL,
         headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
@@ -217,11 +269,9 @@ def fetch_timing_table(email: str, password: str, num_days: int = 10) -> pd.Data
 
     at_a_glance = data.get("AtAGlance", {})
     items       = data.get("ColorGuard", {}).get("Items", [])
-
     if not items:
         raise RuntimeError("VectorVest REST API returned no ColorGuard items")
 
-    # Build a lookup for today's % Buys / % Sells (only available in AtAGlance)
     today_iso = date.today().isoformat()
     buys_pct  = round(at_a_glance.get("BuysPercentage",  0) * 100, 1)
     sells_pct = round(at_a_glance.get("SellsPercentage", 0) * 100, 1)
@@ -250,35 +300,8 @@ def fetch_timing_table(email: str, password: str, num_days: int = 10) -> pd.Data
     return df
 
 
-# ── Merge functions ───────────────────────────────────────────────────────────
-
-def merge_ohlcv(rec: dict, hist_path: Path, trading_day: date):
-    """Merge a QQQ or TQQQ StockViewer record into an OHLCV history file.
-    Uses last_trading_day() date — not today — to avoid weekend/late-run misdating.
-    Duplicate check: if the trading day already exists, skips without overwriting."""
-    df  = load_history(hist_path)
-    ts  = pd.Timestamp(trading_day)
-
-    if ts in set(df['Date']):
-        print(f"  ⚠️  {hist_path.name}: {trading_day} already exists — skipping (duplicate)")
-        return
-
-    new_row = pd.DataFrame([{
-        'Date':   ts,
-        'Open':   rec.get('Open',   ''),
-        'High':   rec.get('High',   ''),
-        'Low':    rec.get('Low',    ''),
-        'Close':  rec.get('Price',  ''),
-        'Volume': rec.get('Volume', ''),
-        'RT':     rec.get('RT',     ''),
-    }])
-    df = pd.concat([df, new_row], ignore_index=True).sort_values('Date').reset_index(drop=True)
-    save_history(df, hist_path)
-    print(f"  ✅ {hist_path.name}: added {trading_day}  Close={rec.get('Price')}  RT={rec.get('RT')}")
-
-
 def merge_vv_views_from_timing(timing_df: pd.DataFrame):
-    """Merge all new rows from the timing table into the VV views history file."""
+    """Append new rows from the timing table into the VV views history file."""
     df = load_history(VV_VIEWS_FILE)
     existing = set(df['Date'])
     new_rows = timing_df[~timing_df['Date'].isin(existing)].copy()
@@ -287,7 +310,6 @@ def merge_vv_views_from_timing(timing_df: pd.DataFrame):
         print(f"  {VV_VIEWS_FILE.name}: no new rows from timing table")
         return
 
-    # Ensure columns match history file
     for col in VV_VIEWS_COLS:
         if col not in new_rows.columns and col != 'Date':
             new_rows[col] = ''
@@ -299,52 +321,16 @@ def merge_vv_views_from_timing(timing_df: pd.DataFrame):
     print(f"  ✅ {VV_VIEWS_FILE.name}: added {len(new_rows)} row(s) from timing table: {dates_added}")
 
 
-def update_vvc_price(rec: dict, trading_day: date):
-    """Overwrite trading_day's VVC-Price (and VVC-RT) with the StockViewer 3-decimal value.
-    Uses last_trading_day() date — not today — to avoid weekend/late-run misdating.
-    If the row was already added by the timing table, updates VVC-Price in place.
-    If the row doesn't exist yet, inserts it (timing table may not have today yet)."""
-    df = load_history(VV_VIEWS_FILE)
-    ts = pd.Timestamp(trading_day)
-
-    if ts in set(df['Date']):
-        idx = df.index[df['Date'] == ts][0]
-        old = df.at[idx, 'VVC-Price']
-        if str(old) == str(rec.get('Price', '')):
-            print(f"  ⚠️  {VV_VIEWS_FILE.name}: {trading_day} VVC-Price already {old} — no change")
-            return
-        df['VVC-Price'] = df['VVC-Price'].astype(object)
-        df['VVC-RT']    = df['VVC-RT'].astype(object)
-        df.at[idx, 'VVC-Price'] = rec.get('Price', df.at[idx, 'VVC-Price'])
-        df.at[idx, 'VVC-RT']    = rec.get('RT',    df.at[idx, 'VVC-RT'])
-        save_history(df, VV_VIEWS_FILE)
-        print(f"  ✅ {VV_VIEWS_FILE.name}: updated {trading_day}  "
-              f"VVC-Price {old} → {rec.get('Price')} (StockViewer, 3dp)  VVC-RT={rec.get('RT')}")
-    else:
-        # Timing table didn't have this date yet — insert with StockViewer data
-        new_row = pd.DataFrame([{
-            'Date':      ts,
-            'VVC-Price': rec.get('Price', ''),
-            'VVC-RT':    rec.get('RT',    ''),
-            '% Buys':    '', '% Sells': '', 'BS Ratio': '',
-            'CG-Price':  '', 'CG-RT':   '', 'CG-BSR':   '',
-            'MTI':       '', 'Trend':    '',
-        }])
-        df = pd.concat([df, new_row], ignore_index=True).sort_values('Date').reset_index(drop=True)
-        save_history(df, VV_VIEWS_FILE)
-        print(f"  ✅ {VV_VIEWS_FILE.name}: inserted {trading_day}  "
-              f"VVC-Price={rec.get('Price')} (StockViewer, 3dp)  VVC-RT={rec.get('RT')}")
-
-
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--symbols", default="VVC, TQQQ, QQQ")
+    ap.add_argument("--symbols", default="TQQQ, QQQ",
+                    help="Comma-separated symbols for the OHLCV+RT fetch")
     ap.add_argument("--skip-timing", action="store_true",
-                    help="Skip the Views newsletter timing fetch")
-    ap.add_argument("--skip-stockviewer", action="store_true",
-                    help="Skip the StockViewer fetch")
+                    help="Skip the market-timing REST fetch")
+    ap.add_argument("--skip-stocks", action="store_true",
+                    help="Skip the per-stock OHLCV+RT fetch")
     args = ap.parse_args()
 
     email    = os.getenv("VECTORVEST_EMAIL")
@@ -352,80 +338,54 @@ def main():
     if not email or not password:
         sys.exit("Set VECTORVEST_EMAIL and VECTORVEST_PASSWORD env vars.")
 
-    today = date.today()
-
-    # trading_day resolved after timing fetch (authoritative); fallback = last weekday
-    trading_day = last_trading_day(today)
-    date_str    = today.strftime("%Y-%m-%d")
+    date_str = date.today().strftime("%Y-%m-%d")
     print(f"[{datetime.now().isoformat()}] fetch_vv_daily  {date_str}\n", flush=True)
 
-    # ── SOURCE 2: VectorVest REST API timing ─────────────────────────────────
-    timing_df = None
-    if not args.skip_timing:
-        print("── VectorVest REST API timing ────────────────────────────────")
-        try:
-            timing_df = fetch_timing_table(email, password, num_days=10)
+    token = get_vv_token(email, password)
 
-            # Save daily snapshot
-            snap_path = DAILY_DIR / f"timing_{date_str}.csv"
+    # ── SOURCE 2: market timing ───────────────────────────────────────────────
+    if not args.skip_timing:
+        print("── VectorVest market timing (REST) ───────────────────────────")
+        try:
+            timing_df = fetch_timing_table(token, num_days=10)
+
             snap = timing_df.copy()
             snap['Date'] = snap['Date'].dt.strftime(DATE_FMT)
+            snap_path = DAILY_DIR / f"timing_{date_str}.csv"
             snap.to_csv(snap_path, index=False)
             print(f"  Snapshot → {snap_path.name}")
 
             merge_vv_views_from_timing(timing_df)
-
-            # Trading day = most recent date from API (authoritative — handles holidays)
-            trading_day = trading_day_from_timing(timing_df)
-            print(f"  Trading day resolved from API: {trading_day}")
-
+            print(f"  Trading day from API: {trading_day_from_timing(timing_df)}")
         except Exception as e:
-            print(f"  ⚠️  REST API timing fetch failed: {e}")
-            print(f"  ⚠️  Falling back to last weekday: {trading_day}")
+            print(f"  ⚠️  timing fetch failed: {e}")
         print()
 
-    # ── SOURCE 1: StockViewer ─────────────────────────────────────────────────
-    if not args.skip_stockviewer:
-        print("── StockViewer ───────────────────────────────────────────────")
-        try:
-            records = fetch_stockviewer(args.symbols, email, password)
+    # ── SOURCE 1: per-stock OHLCV + RT ────────────────────────────────────────
+    if not args.skip_stocks:
+        print("── Per-stock OHLCV + RT (REST /quotehistory) ─────────────────")
+        symbols = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
+        for sym in symbols:
+            hist_path = OHLCV_FILES.get(sym)
+            if hist_path is None:
+                print(f"  ⚠️  {sym}: no history file mapped — skipping")
+                continue
+            try:
+                stock_id = resolve_stock_id(token, sym)
+                api_df   = fetch_ohlcv_rt_history(token, stock_id)
+                print(f"  {sym}: fetched {len(api_df)} daily bars "
+                      f"({api_df['Date'].min().date()} → {api_df['Date'].max().date()})")
 
-            if not records:
-                print("  ⚠️  No records returned — check login or page structure.")
-            else:
-                # Save daily snapshot
-                df_snap  = pd.DataFrame(records)
-                snap_path = DAILY_DIR / f"stockviewer_{date_str}.csv"
-                df_snap.to_csv(snap_path, index=False)
-                print(f"\n  Snapshot → {snap_path.name}")
+                snap = api_df.tail(RECONCILE_DAYS).copy()
+                snap['Date'] = snap['Date'].dt.strftime(DATE_FMT)
+                snap_path = DAILY_DIR / f"ohlcv_{sym.lower()}_{date_str}.csv"
+                snap.to_csv(snap_path, index=False)
 
-                key   = ["Symbol", "Price", "RV", "RS", "RT", "VST", "REC", "Stop"]
-                avail = [c for c in key if c in df_snap.columns]
-                print(f"\n{df_snap[avail].to_string(index=False)}\n")
-
-                rec_by_sym = {r['Symbol'].upper(): r for r in records}
-
-                # QQQ → qqq-from-vv.csv
-                if 'QQQ' in rec_by_sym:
-                    merge_ohlcv(rec_by_sym['QQQ'],  HIST_DIR / 'qqq-from-vv.csv',  trading_day)
-                else:
-                    print("  ⚠️  QQQ not in results")
-
-                # TQQQ → tqqq-from-vv.csv
-                if 'TQQQ' in rec_by_sym:
-                    merge_ohlcv(rec_by_sym['TQQQ'], HIST_DIR / 'tqqq-from-vv.csv', trading_day)
-                else:
-                    print("  ⚠️  TQQQ not in results")
-
-                # VVC → overwrite VVC-Price with 3-decimal StockViewer value
-                if 'VVC' in rec_by_sym:
-                    update_vvc_price(rec_by_sym['VVC'], trading_day)
-                else:
-                    print("  ⚠️  VVC not in results")
-
-        except Exception as e:
-            print(f"  ⚠️  StockViewer fetch failed: {e}")
-            raise
+                merge_ohlcv_history(api_df, hist_path)
+            except Exception as e:
+                print(f"  ⚠️  {sym} OHLCV+RT fetch failed: {e}")
+                raise
+        print()
 
 
 if __name__ == "__main__":

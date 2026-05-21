@@ -1,0 +1,15 @@
+{
+  "url": "https://api.vectorvest.com/MarketData/v3/quote?fields=PriceToEarnings&fields=EarningsYield&fields=DividendYield&fields=DividendGrowth&fields=StreamId&useExtendedHours=false&symbol=VVC&region=US&requestToUnlockProprietaryQuote=true&connectionId=28c9eebd-46ae-46a5-a94a-04c089cc2b8e&requestId=6760e9e1-a569-4632-9a05-5db1063de756",
+  "body": [
+    {
+      "StreamId": "1206483999",
+      "EarningsYield": 0.873229,
+      "DividendYield": 1.13,
+      "PriceToEarnings": 114.517447,
+      "ProprietaryData": {
+        "DividendGrowth": 10
+      },
+      "StockId": "US_SY_7284"
+    }
+  ]
+}

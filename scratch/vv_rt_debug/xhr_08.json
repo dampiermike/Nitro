@@ -1,0 +1,6 @@
+{
+  "url": "https://api.ipdata.co/?api-key=028c9890a48356ba9e8180885d2e9776e07ca028c6db4bdf368e9d8b&fields=region_code",
+  "body": {
+    "region_code": "TX"
+  }
+}

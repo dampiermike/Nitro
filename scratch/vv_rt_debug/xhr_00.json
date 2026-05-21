@@ -1,0 +1,210 @@
+{
+  "url": "https://api.omappapi.com/v2/embed/40148?d=app.vectorvest.com&device=desktop",
+  "body": {
+    "campaigns": [
+      [
+        {
+          "id": "npevzop2avhshdjvxhoc",
+          "views": [
+            {
+              "id": "optin",
+              "url": "https://a.optinmonster.com/app/campaign-views/fbd9bfd82da1/npevzop2avhshdjvxhoc/1b71a6360a72693f92724e26bf825940-optin.json",
+              "order": 2,
+              "device": "desktop",
+              "resources": {
+                "images": [
+                  {
+                    "src": "https://a.omappapi.com/users/cef824d326cb/images/382c271c5ff11560195836-canvas-floating-bar2.png?width=1386",
+                    "srcSet": "https://a.omappapi.com/users/cef824d326cb/images/382c271c5ff11560195836-canvas-floating-bar2.png?width=693 1x, https://a.omappapi.com/users/cef824d326cb/images/382c271c5ff11560195836-canvas-floating-bar2.png?width=1039.5 1.5x, https://a.omappapi.com/users/cef824d326cb/images/382c271c5ff11560195836-canvas-floating-bar2.png?width=1386 2x, https://a.omappapi.com/users/cef824d326cb/images/382c271c5ff11560195836-canvas-floating-bar2.png?width=2079 3x"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "success",
+              "url": "https://a.optinmonster.com/app/campaign-views/fbd9bfd82da1/npevzop2avhshdjvxhoc/4382ca29fd9838b30524b391d5049669-success.json",
+              "order": 3,
+              "device": "desktop",
+              "resources": {
+                "images": [
+                  {
+                    "src": "https://a.omappapi.com/users/cef824d326cb/images/382c271c5ff11560195836-canvas-floating-bar2.png?width=1386",
+                    "srcSet": "https://a.omappapi.com/users/cef824d326cb/images/382c271c5ff11560195836-canvas-floating-bar2.png?width=693 1x, https://a.omappapi.com/users/cef824d326cb/images/382c271c5ff11560195836-canvas-floating-bar2.png?width=1039.5 1.5x, https://a.omappapi.com/users/cef824d326cb/images/382c271c5ff11560195836-canvas-floating-bar2.png?width=1386 2x, https://a.omappapi.com/users/cef824d326cb/images/382c271c5ff11560195836-canvas-floating-bar2.png?width=2079 3x"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "yesno",
+              "url": "https://a.optinmonster.com/app/campaign-views/fbd9bfd82da1/npevzop2avhshdjvxhoc/5561d76e22040ff977c70ab83c00585b-yesno.json",
+              "order": 1,
+              "device": "desktop",
+              "resources": {
+                "images": []
+              }
+            }
+          ],
+          "meta": {
+            "recaptcha_enabled": false
+          },
+          "parent_id": null,
+          "name": "QSC - Homepage",
+          "type": "inline",
+          "status": "active",
+          "namespace": "talladega",
+          "fonts": {
+            "Montserrat": [
+              400
+            ],
+            "Open Sans": [
+              600
+            ]
+          },
+          "updated_at": "2025-09-11 05:59:43",
+          "site": [
+            {
+              "id": "681d0406c1c33",
+              "domain": "app.vectorvest.com",
+              "created": "2025-05-08 19:20:38",
+              "numeric_id": 442388,
+              "settings": {
+                "global_interaction_cookie": 0,
+                "global_success_cookie": 0,
+                "affiliate_link": "",
+                "affiliate_link_position": "bottom",
+                "shopify": 0,
+                "wordpress": 0,
+                "woocommerce": 0,
+                "wpforms": 0,
+                "bigcommerce": 0,
+                "edd": 0,
+                "recaptcha_site_key": ""
+              }
+            }
+          ],
+          "account_data": {
+            "plan": "vbp_pro",
+            "inBeta": false,
+            "revenue": false,
+            "features": [
+              "remove-branding",
+              "smart-tags"
+            ],
+            "pageviews": true,
+            "poweredByDisabled": false
+          },
+          "analytics": [],
+          "options": {
+            "mobile": 0,
+            "interaction_cookie_duration": 3650,
+            "success_cookie_duration": 3650,
+            "seen_cookie_duration": 3650,
+            "cross_subdomain_cookies": 0,
+            "show_affiliate_link": 0,
+            "floating_bar_position": "bottom",
+            "slide_open": 0,
+            "auto_toggle": 5,
+            "page_slide": 0,
+            "enable_lock": 0,
+            "lock_method": "",
+            "countdown": 0,
+            "gamified": 0,
+            "smart_success": 0,
+            "attention_activation": 0,
+            "slide_toggle_state": 0,
+            "bg_close": 1,
+            "enable_web_fonts": 1,
+            "smart_success_view": null,
+            "custom_css": {
+              "applyCssPrefix": true,
+              "rawEditorOutput": ""
+            },
+            "custom_js": {
+              "rawEditorOutput": ""
+            },
+            "om_recaptcha_site_key": null,
+            "analytics_account_id": 0
+          },
+          "folders": [],
+          "meta_rel": [
+            {
+              "id": 679783,
+              "campaign_id": 1542154,
+              "key": "recaptcha_enabled",
+              "value": false
+            }
+          ],
+          "actions": [],
+          "rulesets": [
+            {
+              "id": "p5xm3lwtn308zrk6mbm1",
+              "name": "Default Ruleset",
+              "groups": [
+                {
+                  "id": "H6fVuzuWfbeZzPfsBLs6",
+                  "type": "and",
+                  "rules": [
+                    {
+                      "id": "RGnbTJ0fmiUp1goMB5Aj",
+                      "type": "url-path",
+                      "operator": "url-on-homepage",
+                      "value": "",
+                      "unit": "",
+                      "enabled": true
+                    },
+                    {
+                      "id": "kBfKvxzCNwvCvv0VuY2X",
+                      "type": "cookie",
+                      "operator": "",
+                      "value": {
+                        "key": {
+                          "operator": "not-exists",
+                          "value": "qsc_dont_show"
+                        },
+                        "value": {
+                          "operator": "empty",
+                          "value": ""
+                        }
+                      },
+                      "unit": "",
+                      "enabled": true
+                    }
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "id": "vJxdGhctAFLpXmJrok27",
+                  "type": "show-campaign",
+                  "value": "yesno"
+                },
+                {
+                  "id": "t27xdXXSwjQj6GGditF9",
+                  "type": "display-effect",
+                  "value": "none"
+                },
+                {
+                  "id": "VBWCEHi2eT3VqiSLMS8O",
+                  "type": "sound-effect",
+                  "value": "none"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    ],
+    "domains": {
+      "replace": [
+        "s3.amazonaws.com/optin-monster",
+        "optin-monster.s3.amazonaws.com",
+        "a.optinmonster.com",
+        "a.optnmnstr.com",
+        "a.optnmstr.com",
+        "a.optmnstr.com",
+        "a.opmnstr.com"
+      ],
+      "replacement": "a.omappapi.com"
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "url": "https://api.vectorvest.com/user/api/v1/layout/type/Annotation",
+  "body": {
+    "layoutType": "Annotation",
+    "current": {},
+    "namedLayouts": [
+      {
+        "id": "RL_NT_2018",
+        "isUserLayout": false,
+        "name": "Default Annotation Layout"
+      }
+    ]
+  }
+}

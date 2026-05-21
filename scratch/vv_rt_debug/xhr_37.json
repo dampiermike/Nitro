@@ -1,0 +1,25 @@
+{
+  "url": "https://api.vectorvest.com/MarketData/v3/quote?fields=StockId&fields=Symbol&fields=LastPrice&fields=CompanyName&fields=RelativeSafety&fields=RelativeTiming&fields=RelativeValue&fields=ValueSafetyTiming&fields=Value&fields=StopPrice&fields=TotalChange&fields=PercentChangePrice&fields=Recommendation&fields=OpenPrice&fields=HighPrice&fields=LowPrice&fields=StreamId&symbol=VVC&region=US&requestToUnlockProprietaryQuote=true",
+  "body": [
+    {
+      "Symbol": "VVC",
+      "CompanyName": "V V COMPOSITE",
+      "OpenPrice": 82.1247,
+      "HighPrice": 82.8138,
+      "LowPrice": 81.7678,
+      "LastPrice": 82.7045,
+      "TotalChange": 0.461,
+      "PercentChangePrice": 0.005605,
+      "ProprietaryData": {
+        "Value": 74.3999,
+        "RelativeValue": 0.902,
+        "RelativeSafety": 0.847,
+        "RelativeTiming": 1.003,
+        "ValueSafetyTiming": 0.954,
+        "StopPrice": 77.0039,
+        "Recommendation": "H"
+      },
+      "StockId": "US_SY_7284"
+    }
+  ]
+}

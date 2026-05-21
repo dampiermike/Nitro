@@ -1,0 +1,15 @@
+{
+  "url": "https://api.vectorvest.com/intent/v1/streaming/signalr/negotiate?clientProtocol=2.1&connectionData=%5B%7B%22name%22%3A%22streaminghub%22%7D%5D&_=1779395060580",
+  "body": {
+    "Url": "/intent/v1/streaming/signalr",
+    "ConnectionToken": "AQAAANCMnd8BFdERjHoAwE/Cl+sBAAAA1LdZkC3sOUmD37qwkNrgDQAAAAACAAAAAAADZgAAwAAAABAAAAAlzj6COMgDREOk+3TKWx9UAAAAAASAAACgAAAAEAAAAMf5cNyGuAmmWr4x+h3pMeIoAAAA25i6SCMwd2smph3BntXP7cWqFIs5F39wAmSK59xrmMnkATS2QBaljhQAAAA1sZ8zo9qO1VUoJqDHbWRQbp9nXw==",
+    "ConnectionId": "90822bf2-8245-4e9c-979a-47befc7d0dc6",
+    "KeepAliveTimeout": 20.0,
+    "DisconnectTimeout": 30.0,
+    "ConnectionTimeout": 110.0,
+    "TryWebSockets": true,
+    "ProtocolVersion": "1.5",
+    "TransportConnectTimeout": 5.0,
+    "LongPollDelay": 0.0
+  }
+}
