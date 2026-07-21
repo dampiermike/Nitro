@@ -7,7 +7,13 @@ import sys
 import numpy as np
 import pandas as pd
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data/csv/history")
+# Path config: local by default (this file's directory), overridable in
+# production via env vars so nothing depends on the checkout living in any
+# particular (e.g. cloud-synced) location.
+#   NITRO_HOME     - project root      (default: directory of this file)
+#   NITRO_DATA_DIR - CSV history dir   (default: $NITRO_HOME/data/csv/history)
+NITRO_HOME = os.environ.get("NITRO_HOME", os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.environ.get("NITRO_DATA_DIR", os.path.join(NITRO_HOME, "data/csv/history"))
 START_DATE = pd.Timestamp("2000-01-01")
 END_DATE = pd.Timestamp("2026-04-01")
 SQQQ_CUTOFF = pd.Timestamp("2010-02-11")
