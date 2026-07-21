@@ -12,10 +12,14 @@ import pandas as pd
 # particular (e.g. cloud-synced) location.
 #   NITRO_HOME     - project root      (default: directory of this file)
 #   NITRO_DATA_DIR - CSV history dir   (default: $NITRO_HOME/data/csv/history)
+#   NITRO_END_DATE - backtest window end (default: today, i.e. all history).
+#                    Set to freeze the window for reproducible runs, e.g.
+#                    NITRO_END_DATE=2026-04-01 reproduces the v17 ship numbers.
 NITRO_HOME = os.environ.get("NITRO_HOME", os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.environ.get("NITRO_DATA_DIR", os.path.join(NITRO_HOME, "data/csv/history"))
 START_DATE = pd.Timestamp("2000-01-01")
-END_DATE = pd.Timestamp("2026-04-01")
+_END_ENV = os.environ.get("NITRO_END_DATE", "").strip()
+END_DATE = pd.Timestamp(_END_ENV) if _END_ENV else pd.Timestamp.today().normalize()
 SQQQ_CUTOFF = pd.Timestamp("2010-02-11")
 TQQQ_STITCH = pd.Timestamp("2010-03-31")
 
@@ -209,13 +213,20 @@ def fmt_eq(x):
     return f"${x:,.0f}"
 
 
-def trade_stats(trades, eq, dret_arr):
+def trade_stats(trades, eq, dret_arr, dates=None):
+    """Summary stats. Pass `dates` (the bar Date series) so CAGR annualizes over
+    the actual window; without it the exponent falls back to the original fixed
+    2000-01-03 -> 2026-04-01 span, which is only correct for that window."""
     eq_arr = np.asarray(eq, dtype=float)
     if len(trades) == 0:
         return dict(n=0, final=eq_arr[-1] if len(eq_arr) else np.nan, cagr=np.nan, sharpe=np.nan, mdd=np.nan)
     final = eq_arr[-1]
-    # CAGR per spec exponent: (2026-04-01 - 2000-01-03).days / 365.25 = 9585/365.25 = 26.2423
-    yrs = 9585.0 / 365.25
+    if dates is not None and len(dates):
+        d = pd.to_datetime(pd.Series(dates).reset_index(drop=True))
+        yrs = (d.iloc[-1] - d.iloc[0]).days / 365.25
+    else:
+        # Legacy spec exponent: (2026-04-01 - 2000-01-03).days / 365.25 = 9585/365.25 = 26.2423
+        yrs = 9585.0 / 365.25
     cagr = (final / 100_000.0) ** (1.0 / yrs) - 1.0
     dret = np.asarray(dret_arr, dtype=float)
     dret = dret[~np.isnan(dret)]

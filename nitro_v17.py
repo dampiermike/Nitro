@@ -391,7 +391,7 @@ def main():
     print("=" * 90)
     for mode in ["4a", "4b", "5", "7"]:
         r = run_engine(df, mode=mode)
-        s = trade_stats(r["trades"], r["eq"], r["dret"])
+        s = trade_stats(r["trades"], r["eq"], r["dret"], dates=df["Date"])
         tag = f"{mode} (Q={r['n_qqq']} I={r['n_inv']} T={r['n_tqqq']} Cap={r['n_cap']})"
         print_stats(tag, s)
     print("=" * 90)
