@@ -1,5 +1,5 @@
 #!/bin/bash
-# Dampier Nitro++ v16 — Daily runner
+# Dampier Nitro++ v17 — Daily runner
 # Fetches latest market data, then generates and emails the daily signal.
 # Logs output to logs/daily-YYYY-MM-DD.log and sends heartbeat/failure email.
 
@@ -103,7 +103,7 @@ trap on_failure ERR
 # ── Pipeline (all output tee'd to log file) ───────────────────────────────────
 {
     echo "=========================================="
-    echo "  Nitro++ v16 Daily Run — $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "  Nitro++ v17 Daily Run — $(date '+%Y-%m-%d %H:%M:%S')"
     echo "=========================================="
 
     echo
@@ -120,7 +120,7 @@ trap on_failure ERR
 
     echo
     echo "── Step 4/5: Daily signal report ──"
-    $PY nitro_daily_signal_v16.py
+    $PY nitro_daily_signal_v17.py
 
     echo
     echo "── Step 5/5: Commit & push data ──"
