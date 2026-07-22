@@ -23,6 +23,9 @@ _base = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _base)
 from nitro_v16 import load_data, compute_dew
 from nitro_v17 import get_pmp, add_cap_feature, CAP_DROP5_THR, CAP_COOLDOWN, CAP_ATR_MULT
+# Mean-Rev (Setup 6) is not traded by v17 - these are imported for the
+# display-only Mean-Rev block in the daily report.
+from nitro_v17_backtest import add_v17_features, STRETCH_THR, VOL20_THR
 
 START_DATE = pd.Timestamp("2000-01-01")
 DRYRUN = bool(os.environ.get("NITRO_DRYRUN"))
@@ -528,7 +531,6 @@ def evaluate_last_bar(df, state):
     return pending
 
 
-def yn(cond): return "Y" if cond else "-"
 
 
 def print_report(df, state, pending, trades):
@@ -614,13 +616,30 @@ def print_report(df, state, pending, trades):
     qcl = today.get("Close", float("nan"))
     d5 = today.get("drop5", float("nan"))
 
+    # DEW_Signal is populated only on the bar a signal fires, so the prevailing
+    # direction is the most recent non-empty value.
+    def dew_prevailing():
+        d = df["DEW_Signal"].values
+        for j in range(len(df) - 1, -1, -1):
+            if d[j] in ("Buy", "Sell"):
+                return d[j], str(df["Date"].iloc[j])[:10]
+        return None, None
+
+    prev_sig, prev_date = dew_prevailing()
+
     def fmt(label, val, fmt_str=":.2f", suf=""):
         if isinstance(val, float) and np.isnan(val):
             return f"  {label:<17}:  -"
         return f"  {label:<17}:  {format(val, fmt_str)}{suf}"
 
     out.append(f"  Confirmed Call   :  {cc_v}")
-    out.append(f"  DEW Signal       :  {dew_v}")
+    if dew_v in ("Buy", "Sell"):
+        dew_disp = f"{dew_v}  (fired today)"
+    elif prev_sig:
+        dew_disp = f"{prev_sig}  (last fired {prev_date})"
+    else:
+        dew_disp = "-"
+    out.append(f"  DEW Signal       :  {dew_disp}")
     out.append(fmt("QQQ Close", qcl, ".2f", ""))
     out.append(fmt("QQQ RT", rt, ".2f"))
     out.append(fmt("MTI", mti, ".2f"))
@@ -636,70 +655,119 @@ def print_report(df, state, pending, trades):
     out.append("  " + rule("-"))
     out.append("  ENTRY SIGNAL CONDITIONS")
     out.append("  " + rule("-"))
-
-    cup_parts = [
-        f"cc=C/Up {yn(cc_v=='C/Up')}",
-        f"TQQQ_RT<1.40 {yn(not np.isnan(trt) and trt<1.40)}",
-        f"BSR>1.05 {yn(not np.isnan(bsr) and bsr>1.05)}",
-        f"TQQQ_ATR<7.0 {yn(not np.isnan(tatr) and tatr<7.0)}",
-        f"VIX<30 {yn(not np.isnan(vix) and vix<30)}",
-        f"!cup_entered {yn(not state['cup_entered'])}",
-    ]
-    cup_all = pending.get("cup_f", False) and not state["cup_entered"]
-    out.append(f"  cup_f (C/Up TQQQ):  {'ACTIVE Y' if cup_all else 'inactive'}")
-    out.append(f"      " + " · ".join(cup_parts))
-
-    cdn_parts = [
-        f"cc=C/Dn {yn(cc_v=='C/Dn')}",
-        f"DEW=Buy {yn(dew_v=='Buy')}",
-        f"last_dew!=Buy {yn(state['last_dew']!='Buy')}",
-        f"RT in [0.95,1.00) {yn(not np.isnan(rt) and 0.95<=rt<1.00)}",
-        f"MTI<1.00 {yn(not np.isnan(mti) and mti<1.00)}",
-        f"VIX<27 {yn(not np.isnan(vix) and vix<27)}",
-    ]
-    cdn_all = pending.get("cdn_f", False)
-    out.append(f"  cdn_f (C/Dn TQQQ):  {'ACTIVE Y' if cdn_all else 'inactive'}")
-    out.append(f"      " + " · ".join(cdn_parts))
-
-    qqq_blk = []
-    if not np.isnan(rt) and 0.85 <= rt < 0.90: qqq_blk.append(f"RT={rt:.2f} in [0.85,0.90)")
-    if not np.isnan(bsr) and bsr > 1.50: qqq_blk.append(f"BSR={bsr:.2f}>1.50")
-    if not np.isnan(mti) and mti > 1.15: qqq_blk.append(f"MTI={mti:.2f}>1.15")
-    if not np.isnan(vix) and vix > 35: qqq_blk.append(f"VIX={vix:.2f}>35")
-    qqq_signal = (dew_v == "Buy" and state["last_dew"] != "Buy")
-    if qqq_signal and not qqq_blk:
-        qqq_str = "ACTIVE Y"
-    elif qqq_signal and qqq_blk:
-        qqq_str = f"DEW Buy BLOCKED: {', '.join(qqq_blk)}"
-    else:
-        qqq_str = "inactive"
-    out.append(f"  DEW Buy -> QQQ   :  {qqq_str}")
-
-    inv_blk = []
-    if (not np.isnan(rt) and rt > 0.95) and (not np.isnan(mti) and mti > 0.95):
-        inv_blk.append(f"RT={rt:.2f}>0.95 AND MTI={mti:.2f}>0.95")
-    if not np.isnan(vix) and vix > 35:
-        inv_blk.append(f"VIX={vix:.2f}>35")
-    inv_signal = (dew_v == "Sell" and state["last_dew"] != "Sell" and cc_v == "C/Dn")
-    if inv_signal and not inv_blk:
-        inv_str = "ACTIVE Y"
-    elif inv_signal and inv_blk:
-        inv_str = f"DEW Sell BLOCKED: {', '.join(inv_blk)}"
-    else:
-        inv_str = "inactive"
-    out.append(f"  DEW Sell -> INV  :  {inv_str}  (INV = SQQQ 1/3 position)")
-
-    # Cap (Setup 5)
-    cap_parts = [
-        f"5d drop<=-10% {yn(not np.isnan(d5) and d5 <= CAP_DROP5_THR)} ({d5*100:.1f}%)" if not np.isnan(d5) else "5d drop -",
-        f"cooldown>=5 {yn(pending.get('cap_cooldown_ok', False))}",
-        f"flat {yn(not state['in_trade'])}",
-    ]
-    cap_all = pending.get("cap_f", False) and pending.get("cap_cooldown_ok", False) and not state["in_trade"]
-    out.append(f"  Cap -> QQQ       :  {'ACTIVE Y' if cap_all else 'inactive'}")
-    out.append(f"      " + " · ".join(cap_parts))
-
     out.append("")
+
+    # ── Per-setup condition blocks ────────────────────────────────────────────
+    # Each condition prints 🟢 (met) / 🔴 (not met) with the live value beside it.
+    conds = []           # accumulates lines for the current setup
+    def cond(ok, text, current, raw=False):
+        """raw=True prints the parenthetical verbatim instead of 'Current = ...'."""
+        paren = current if raw else f"Current = {current}"
+        conds.append(f"     {'🟢' if ok else '🔴'} {text} ({paren})")
+
+    def setup(num, title, all_ok, note=""):
+        """Flush the accumulated conditions under a numbered heading."""
+        tag = "  — ACTIVE" if all_ok else ""
+        suffix = f"  {note}" if note else ""
+        out.append(f"  {num}. {title}{tag}{suffix}")
+        out.extend(conds)
+        out.append("")
+        conds.clear()
+
+    def num(v, dp=2):
+        return "-" if (isinstance(v, float) and np.isnan(v)) else f"{v:.{dp}f}"
+
+    def dew_current(sig):
+        """Display string for a 'DEW == <sig> (fresh this bar)' condition."""
+        if dew_v == sig:
+            # Fired today - fresh unless the engine already acted on it.
+            if state["last_dew"] != sig:
+                return f"{sig}, fresh this bar"
+            return f"{sig} fired today, but already acted on"
+        if prev_sig is None:
+            return "no DEW signal yet"
+        if prev_sig != sig:
+            return f"{prev_sig} — last fired {prev_date}"
+        return f"{prev_sig}, but not fresh — last fired {prev_date}"
+
+    # 1. C/Up TQQQ
+    cond(cc_v == "C/Up", "cc == C/Up", cc_v)
+    cond(not np.isnan(trt) and trt < 1.40, "TQQQ_rt < 1.40", num(trt))
+    cond(not np.isnan(bsr) and bsr > 1.05, "BSR > 1.05", num(bsr))
+    cond(not np.isnan(tatr) and tatr < 7.0, "TQQQ_atr < 7.0", num(tatr))
+    cond(not np.isnan(vix) and vix < 30, "VIX < 30", num(vix))
+    cond(not state["cup_entered"], "C/Up leg not already traded",
+         "already entered" if state["cup_entered"] else "not yet entered")
+    setup(1, "C/Up TQQQ", pending.get("cup_f", False) and not state["cup_entered"])
+
+    # 2. C/Dn TQQQ
+    cond(cc_v == "C/Dn", "cc == C/Dn", cc_v)
+    cond(dew_v == "Buy" and state["last_dew"] != "Buy",
+         "DEW signal == Buy (fresh this bar)", dew_current("Buy"))
+    cond(not np.isnan(rt) and 0.95 <= rt < 1.00, "0.95 ≤ RT < 1.00", num(rt, 3))
+    cond(not np.isnan(mti) and mti < 1.00, "MTI < 1.00", num(mti))
+    cond(not np.isnan(vix) and vix < 27, "VIX < 27", num(vix))
+    setup(2, "C/Dn TQQQ", pending.get("cdn_f", False))
+
+    # 3. QQQ long (DEW Buy leg)
+    rt_blocked = not np.isnan(rt) and 0.85 <= rt < 0.90
+    qqq_signal = (dew_v == "Buy" and state["last_dew"] != "Buy")
+    cond(qqq_signal, "DEW signal == Buy (fresh this bar)", dew_current("Buy"))
+    cond(not rt_blocked, "NOT (0.85 ≤ RT < 0.90)",
+         f"RT {num(rt, 3)}" + (" — inside the block band" if rt_blocked else ""))
+    cond(np.isnan(bsr) or bsr <= 1.50, "NOT (BSR > 1.50)", f"BSR {num(bsr)}")
+    cond(np.isnan(mti) or mti <= 1.15, "NOT (MTI > 1.15)", f"MTI {num(mti)}")
+    cond(np.isnan(vix) or vix <= 35, "VIX ≤ 35", num(vix))
+    qqq_blocked = rt_blocked or (not np.isnan(bsr) and bsr > 1.50) \
+        or (not np.isnan(mti) and mti > 1.15) or (not np.isnan(vix) and vix > 35)
+    setup(3, "QQQ long", qqq_signal and not qqq_blocked)
+
+    # 4. INV short (SQQQ 1/3 position)
+    inv_blocked = ((not np.isnan(rt) and rt > 0.95) and (not np.isnan(mti) and mti > 0.95))
+    inv_signal = (dew_v == "Sell" and state["last_dew"] != "Sell" and cc_v == "C/Dn")
+    cond(dew_v == "Sell" and state["last_dew"] != "Sell",
+         "DEW signal == Sell (fresh this bar)", dew_current("Sell"))
+    cond(cc_v == "C/Dn", "cc == C/Dn", cc_v)
+    cond(not inv_blocked, "NOT (RT > 0.95 AND MTI > 0.95)",
+         f"RT {num(rt, 3)}, MTI {num(mti)}")
+    cond(np.isnan(vix) or vix <= 35, "VIX ≤ 35", num(vix))
+    setup(4, "INV short (SQQQ, 1/3 position)",
+          inv_signal and not inv_blocked and not (not np.isnan(vix) and vix > 35))
+
+    # 5. QQQ Cap (capitulation buy)
+    cool_ok = pending.get("cap_cooldown_ok", False)
+    last_exit_idx = state.get("last_exit_idx")
+    if last_exit_idx is None:
+        cool_cur = "no prior exit"
+    else:
+        cool_cur = f"{len(df) - 1 - last_exit_idx} bars since last exit"
+    cond(not state["in_trade"], "account is flat",
+         "flat" if not state["in_trade"] else f"in {state['instrument']}")
+    cond(not np.isnan(d5) and d5 <= CAP_DROP5_THR,
+         f"5-day QQQ drop ≤ {CAP_DROP5_THR*100:.0f}%",
+         f"{d5*100:.1f}%" if not np.isnan(d5) else "-")
+    cond(cool_ok, f"cooldown ≥ {CAP_COOLDOWN} bars", cool_cur)
+    setup(5, "QQQ Cap",
+          pending.get("cap_f", False) and cool_ok and not state["in_trade"])
+
+    # 6. QQQ Mean-Rev - display only; dropped from the v17 engine as churn.
+    ma20    = today.get("MA20", float("nan"))
+    atr14   = today.get("ATR14", float("nan"))
+    stretch = today.get("stretch", float("nan"))
+    vol20   = today.get("vol20", float("nan"))
+    if np.isnan(stretch):
+        stretch_cur = "Current = -"
+    else:
+        stretch_cur = (f"stretch = (Close - MA20) / ATR14 = "
+                       f"({num(qcl)} - {num(ma20)}) / {num(atr14)} = {num(stretch)}")
+    cond(not state["in_trade"], "account is flat",
+         "flat" if not state["in_trade"] else f"in {state['instrument']}")
+    cond(not np.isnan(stretch) and stretch < STRETCH_THR,
+         f"stretch < {STRETCH_THR:.1f}", stretch_cur, raw=True)
+    cond(not np.isnan(vol20) and vol20 < VOL20_THR, f"vol20 < {VOL20_THR:.2f}", num(vol20, 3))
+    cond(cool_ok, f"cooldown ≥ {CAP_COOLDOWN} bars", cool_cur)
+    setup(6, "QQQ Mean-Rev", False, note="(display only — not traded in v17)")
+
     out.append("  " + rule("="))
     a = pending["action"]
     if a == "ENTER":
@@ -812,7 +880,8 @@ def send_email(subject, body_text):
     msg["Subject"] = subject
     msg["From"]    = GMAIL_USER
     msg["To"]      = ", ".join(TO_EMAIL)
-    msg.attach(MIMEText(body_text, "plain"))
+    # utf-8: the report body contains 🟢/🔴 status markers and ≤/≥ symbols.
+    msg.attach(MIMEText(body_text, "plain", "utf-8"))
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(GMAIL_USER, GMAIL_PASS)
         server.sendmail(GMAIL_USER, TO_EMAIL, msg.as_string())
@@ -849,6 +918,8 @@ def main():
     df_full = df_full.merge(dew_df, on="Date", how="left")
     df_full["DEW_Signal"] = df_full["DEW_Signal"].fillna("").astype(str)
     df_full = add_cap_feature(df_full)
+    # MA20 / vol20 / stretch - display only (Mean-Rev block); drop5 recomputed identically.
+    df_full = add_v17_features(df_full)
 
     df_full = df_full[df_full["Date"] >= START_DATE].reset_index(drop=True)
 
