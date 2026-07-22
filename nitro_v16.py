@@ -9,7 +9,7 @@ import pandas as pd
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data/csv/history")
 START_DATE = pd.Timestamp("2000-01-01")
-END_DATE = pd.Timestamp("2026-04-01")
+END_DATE = pd.Timestamp("2026-06-18")
 SQQQ_CUTOFF = pd.Timestamp("2010-02-11")
 TQQQ_STITCH = pd.Timestamp("2010-03-31")
 
