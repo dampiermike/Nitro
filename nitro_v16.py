@@ -18,12 +18,8 @@ import pandas as pd
 NITRO_HOME = os.environ.get("NITRO_HOME", os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.environ.get("NITRO_DATA_DIR", os.path.join(NITRO_HOME, "data/csv/history"))
 START_DATE = pd.Timestamp("2000-01-01")
-<<<<<<< HEAD
-END_DATE = pd.Timestamp("2026-06-18")
-=======
 _END_ENV = os.environ.get("NITRO_END_DATE", "").strip()
 END_DATE = pd.Timestamp(_END_ENV) if _END_ENV else pd.Timestamp.today().normalize()
->>>>>>> 5af5ce46aa6e697d733a1293ff9ff203cf85fe1c
 SQQQ_CUTOFF = pd.Timestamp("2010-02-11")
 TQQQ_STITCH = pd.Timestamp("2010-03-31")
 
